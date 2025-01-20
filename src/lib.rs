@@ -1,6 +1,8 @@
 use lexer::Lexer;
 use std::{
-    fmt::{self, Display}, fs::File, io::{stdin, stdout, Read, Write}
+    fmt::{self, Display},
+    fs::File,
+    io::{stdin, stdout, Read, Write},
 };
 
 fn run(contents: String) {
@@ -12,7 +14,7 @@ fn run(contents: String) {
                 println!("{:?}", token)
             }
         }
-        Err(error) => eprintln!("{:?}", error)
+        Err(error) => eprintln!("{:?}", error),
     }
 }
 
@@ -31,10 +33,15 @@ pub fn run_prompt() {
         print!(">");
         let _ = stdout().flush();
         let mut input = String::new();
-        match stdin().read_to_string(&mut input) {
-            Ok(_) => run(input),
+        match stdin().read_line(&mut input) {
+            Ok(_) => (),
             Err(error) => eprintln!("Error Reading Input: {}", error),
         };
+        if input == String::from("exit()\n") {
+            return;
+        } else {
+            run(input);
+        }
     }
 }
 

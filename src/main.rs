@@ -8,7 +8,7 @@ fn main() {
     if args.len() > 2 {
         println!("Usage: redbelly [script]")
     } else if args.len() == 2 {
-        let _ = run_file(&args[1]);
+        run_file(&args[1]);
     } else {
         run_prompt();
     }

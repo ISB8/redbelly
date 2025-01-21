@@ -15,7 +15,7 @@ pub enum TokenType {
   Less, LessEqual,
 
   // Literals.
-  Identifier, String, Number,
+  Identifier, String(String), Number(f64),
 
   // Keywords.
   And, Class, Else, False, Func, For, If, Nil, Or,
@@ -64,6 +64,8 @@ impl Lexer {
         }
     }
 
+    /// Loops over every token in source, and scans the token. Once a given token has been scaned start is set to current.
+    /// Anytime self.consume() is called outside this function it increases the size of the lexeme.
     pub fn scan(&mut self) -> Result<Vec<Token>, RedbellyError> {
         while !self.is_at_end() {
             self.start = self.index;
@@ -78,17 +80,26 @@ impl Lexer {
         return Ok(self.tokens.clone());
     }
 
+    /// Returns the character at the current index, then increments the current index. Panics if self.index is out of bounds
     fn consume(&mut self) -> &char {
         let c = self.source.get(self.index).expect("Out of Bounds");
         self.index += 1;
         return c;
     }
 
-    /// Looks one index ahead. Returns none if index + 1 would escape the bounds of the vector
+    /// Looks at current index without consuming it. Returns none if the index is out of bounds.
     fn peek(&self) -> Option<&char> {
         self.source.get(self.index)
     }
 
+    /// Looks at index + 1 without consuming it. Returns none if the index is out of bounds
+    fn peek_next(&self) -> Option<&char> {
+        self.source.get(self.index + 1)
+    }
+
+    /// Pushes a token onto self.tokens. Gets the lexeme of the token by getting a slice from contents.
+    /// The bounds of the slice are determined by the the range between start and current. See scan() for
+    /// details on start
     fn add_token(&mut self, token_type: TokenType) -> Result<(), RedbellyError> {
         let lexeme: String = self.source[self.start..self.index].iter().clone().collect();
         self.tokens.push(Token::new(token_type, lexeme));
@@ -113,19 +124,34 @@ impl Lexer {
             '<' => self.consume_and_add_token_or('=', TokenType::LessEqual, TokenType::Less),
             '>' => self.consume_and_add_token_or('=', TokenType::GreaterEqual, TokenType::Greater),
             '/' => self.handle_slash(),
+            '"' => self.handle_string(),
             // Ignore Whitespace
             ' ' | '\r' | '\t' => Ok(()),
             '\n' => {
                 self.line += 1;
                 Ok(())
             }
-            _ => return Err(RedbellyError::new("Unexpected Character", self.line)),
+            _ => {
+                if Lexer::is_num(c) {
+                    self.handle_numbers()
+                } else {
+                    Err(RedbellyError::new("Unexpected Character", self.line))
+                }
+            }
         }
     }
 
     fn is_at_end(&self) -> bool {
         return self.index >= self.source.len();
     }
+
+    fn is_num(c: &char) -> bool {
+        if c >= &'0' && c <= &'9' {
+            return true;
+        }
+        false
+    }
+
     /// Checks if the next character matches 'expected', and if so consumes a character and returns it. Otherwise returns none
     fn consume_or(&mut self, expected: char) -> Option<&char> {
         if self.is_at_end() {
@@ -150,9 +176,7 @@ impl Lexer {
         false_token: TokenType,
     ) -> Result<(), RedbellyError> {
         match self.consume_or(expected) {
-            Some(_) => {
-                self.add_token(true_token)
-            }
+            Some(_) => self.add_token(true_token),
             None => self.add_token(false_token),
         }
     }
@@ -166,6 +190,73 @@ impl Lexer {
                     let _ = self.consume();
                 }
                 Ok(())
+            }
+        }
+    }
+
+    // TODO: Support Escape Sequences
+    fn handle_string(&mut self) -> Result<(), RedbellyError> {
+        loop {
+            let p = self.peek();
+            match p {
+                Some('"') => {
+                    let _ = self.consume();
+                    break;
+                }
+                Some('\n') => self.line += 1,
+                None => return Err(RedbellyError::new("Untermintated String", self.line)),
+                Some(_) => (),
+            }
+            self.consume();
+        }
+        // Trims the Quotes
+        let val: String = self.source[self.start + 1..self.index - 1]
+            .iter()
+            .clone()
+            .collect();
+        self.add_token(TokenType::String(val))
+    }
+
+    // Consider supporting negative numbers as literals
+    fn handle_numbers(&mut self) -> Result<(), RedbellyError> {
+        self.consume_all_nums();
+
+        // Check if has decible, if so, consumes it
+        match (
+            self.peek(),
+            Lexer::is_num(self.peek_next().unwrap_or(&'\0')),
+        ) {
+            (Some('.'), true) => {
+                let _ = self.consume();
+            }
+            _ => (),
+        }
+
+        self.consume_all_nums();
+
+        let s: String = self.source[self.start..self.index].iter().clone().collect();
+
+        match s.parse::<f64>() {
+            Ok(val) => self.add_token(TokenType::Number(val)),
+            Err(_) => Err(RedbellyError::new(
+                "Failed to cast Number Lexeme to f64",
+                self.line,
+            )),
+        }
+    }
+
+    /// Consumes all characters that are numbers until it finds a character that is not a number.
+    fn consume_all_nums(&mut self) {
+        loop {
+            match self.peek() {
+                Some(c) => {
+                    if Lexer::is_num(c) {
+                        self.consume();
+                    } else {
+                        break;
+                    }
+                }
+                None => break,
             }
         }
     }
@@ -217,6 +308,42 @@ mod lexer_tests {
             Token::from_str(TokenType::Eof, ""),
         ];
         let string = String::from("// Comment which should be ignored\n<=");
+        let mut lexer = Lexer::new(string.clone());
+        let tokens = lexer.scan().unwrap();
+        assert_eq!(test_tokens, tokens);
+    }
+
+    #[test]
+    fn test_strings() {
+        let test_tokens: Vec<Token> = vec![
+            Token::from_str(TokenType::String(String::from("Test")), "\"Test\""),
+            Token::from_str(TokenType::Eof, ""),
+        ];
+        let string = String::from("\"Test\"");
+        let mut lexer = Lexer::new(string.clone());
+        let tokens = lexer.scan().unwrap();
+        assert_eq!(test_tokens, tokens);
+    }
+
+    #[test]
+    fn test_integers() {
+        let test_tokens: Vec<Token> = vec![
+            Token::from_str(TokenType::Number(123.), "123"),
+            Token::from_str(TokenType::Eof, ""),
+        ];
+        let string = String::from("123");
+        let mut lexer = Lexer::new(string.clone());
+        let tokens = lexer.scan().unwrap();
+        assert_eq!(test_tokens, tokens);
+    }
+
+    #[test]
+    fn test_floats() {
+        let test_tokens: Vec<Token> = vec![
+            Token::from_str(TokenType::Number(693.8932), "693.8932"),
+            Token::from_str(TokenType::Eof, ""),
+        ];
+        let string = String::from("693.8932");
         let mut lexer = Lexer::new(string.clone());
         let tokens = lexer.scan().unwrap();
         assert_eq!(test_tokens, tokens);

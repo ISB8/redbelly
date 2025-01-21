@@ -1,4 +1,10 @@
 // Comment
 (( )) {} // Grouping
 !*+-/=<> <= == // Operators
+
 !=
+
+"String"
+
+123 // Number
+123.91 // Float

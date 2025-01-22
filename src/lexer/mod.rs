@@ -1,4 +1,5 @@
 use crate::RedbellyError;
+use std::collections::HashMap;
 
 #[rustfmt::skip]
 #[allow(dead_code)]
@@ -19,7 +20,7 @@ pub enum TokenType {
 
   // Keywords.
   And, Class, Else, False, Func, For, If, Nil, Or,
-  Print, Return, Super, This, True, Var, While,
+  Print, Return, Super, This, True, Let, While,
 
   Eof
 }
@@ -51,6 +52,7 @@ pub struct Lexer {
     index: usize,
     line: usize,
     start: usize,
+    keywords: HashMap<String, TokenType>
 }
 
 impl Lexer {
@@ -61,6 +63,7 @@ impl Lexer {
             index: 0,
             line: 1,
             start: 0,
+            keywords: get_keywords(),
         }
     }
 
@@ -132,8 +135,10 @@ impl Lexer {
                 Ok(())
             }
             _ => {
-                if Lexer::is_num(c) {
+                if is_num(c) {
                     self.handle_numbers()
+                } else if is_alpha(c){
+                    self.handle_identifiers()
                 } else {
                     Err(RedbellyError::new("Unexpected Character", self.line))
                 }
@@ -143,13 +148,6 @@ impl Lexer {
 
     fn is_at_end(&self) -> bool {
         return self.index >= self.source.len();
-    }
-
-    fn is_num(c: &char) -> bool {
-        if c >= &'0' && c <= &'9' {
-            return true;
-        }
-        false
     }
 
     /// Checks if the next character matches 'expected', and if so consumes a character and returns it. Otherwise returns none
@@ -224,7 +222,7 @@ impl Lexer {
         // Check if has decible, if so, consumes it
         match (
             self.peek(),
-            Lexer::is_num(self.peek_next().unwrap_or(&'\0')),
+            is_num(self.peek_next().unwrap_or(&'\0')),
         ) {
             (Some('.'), true) => {
                 let _ = self.consume();
@@ -250,7 +248,7 @@ impl Lexer {
         loop {
             match self.peek() {
                 Some(c) => {
-                    if Lexer::is_num(c) {
+                    if is_num(c) {
                         self.consume();
                     } else {
                         break;
@@ -260,6 +258,64 @@ impl Lexer {
             }
         }
     }
+
+    fn handle_identifiers(&mut self) -> Result<(), RedbellyError>  {
+        loop {
+            let c = self.peek();
+            if c == None {
+                break;
+            } else {
+                if is_alpha_numeric(c.expect("If value is invalid, it will already have been returned")) {
+                    self.consume();
+                } else {
+                    break;
+                }
+            }
+        }
+
+        let text: String = self.source[self.start..self.index].iter().clone().collect();
+        match self.keywords.get(&text) {
+            Some(val) => self.add_token(val.clone()),
+            None => self.add_token(TokenType::Identifier)
+        }
+    }
+}
+
+fn is_num(c: &char) -> bool {
+    if c >= &'0' && c <= &'9' {
+        return true;
+    }
+    false
+}
+
+fn is_alpha(c: &char) -> bool {
+    return (c >= &'a' && c <= &'z') || (c >= &'A' && c <= &'Z') || c == &'_';
+}
+
+fn is_alpha_numeric(c: &char) -> bool {
+    return is_alpha(c) || is_num(c);
+}
+
+fn get_keywords() -> HashMap<String, TokenType> {
+    let mut map = HashMap::new();
+    map.insert("and".to_string(),    TokenType::And);
+    map.insert("class".to_string(),  TokenType::Class);
+    map.insert("else".to_string(),   TokenType::Else);
+    map.insert("false".to_string(),  TokenType::False);
+    map.insert("for".to_string(),    TokenType::For);
+    map.insert("func".to_string(),    TokenType::Func);
+    map.insert("if".to_string(),     TokenType::If);
+    map.insert("nil".to_string(),    TokenType::Nil);
+    map.insert("or".to_string(),     TokenType::Or);
+    map.insert("print".to_string(),  TokenType::Print);
+    map.insert("return".to_string(), TokenType::Return);
+    map.insert("super".to_string(),  TokenType::Super);
+    map.insert("this".to_string(),   TokenType::This);
+    map.insert("true".to_string(),   TokenType::True);
+    map.insert("let".to_string(),    TokenType::Let);
+    map.insert("while".to_string(),  TokenType::While);
+
+    map
 }
 
 #[cfg(test)]
@@ -344,6 +400,18 @@ mod lexer_tests {
             Token::from_str(TokenType::Eof, ""),
         ];
         let string = String::from("693.8932");
+        let mut lexer = Lexer::new(string.clone());
+        let tokens = lexer.scan().unwrap();
+        assert_eq!(test_tokens, tokens);
+    }
+
+    #[test]
+    fn test_identifier() {
+        let test_tokens: Vec<Token> = vec![
+            Token::from_str(TokenType::Identifier, "foo"),
+            Token::from_str(TokenType::Eof, ""),
+        ];
+        let string = String::from("foo");
         let mut lexer = Lexer::new(string.clone());
         let tokens = lexer.scan().unwrap();
         assert_eq!(test_tokens, tokens);

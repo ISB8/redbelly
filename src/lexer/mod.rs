@@ -1,5 +1,5 @@
 use crate::RedbellyError;
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Display};
 
 #[rustfmt::skip]
 #[allow(dead_code)]
@@ -25,6 +25,16 @@ pub enum TokenType {
   Eof
 }
 
+impl Display for TokenType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TokenType::String(val) => write!(f, "{}", val),
+            TokenType::Number(val) => write!(f, "{}", val),
+            _ => write!(f, "{:?}", self),
+        }
+    }
+}
+
 #[derive(Clone, PartialEq, Debug)]
 pub struct Token {
     token_type: TokenType,
@@ -38,7 +48,12 @@ impl Token {
             lexeme: String::from(lexeme),
         }
     }
-    fn new(token_type: TokenType, lexeme: String) -> Self {
+
+    pub fn lexeme(&self) -> String {
+        self.lexeme.clone()
+    }
+
+    pub fn new(token_type: TokenType, lexeme: String) -> Self {
         Self {
             token_type,
             lexeme: String::from(lexeme),

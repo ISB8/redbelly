@@ -37,26 +37,17 @@ impl Display for TokenType {
 
 #[derive(Clone, PartialEq, Debug)]
 pub struct Token {
-    token_type: TokenType,
-    lexeme: String,
+    pub token_type: TokenType,
+    pub lexeme: String,
+    pub line: usize,
 }
 
 impl Token {
-    fn from_str(token_type: TokenType, lexeme: &str) -> Self {
+    pub fn new(token_type: TokenType, lexeme: String, line: usize) -> Self {
         Self {
             token_type,
             lexeme: String::from(lexeme),
-        }
-    }
-
-    pub fn lexeme(&self) -> String {
-        self.lexeme.clone()
-    }
-
-    pub fn new(token_type: TokenType, lexeme: String) -> Self {
-        Self {
-            token_type,
-            lexeme: String::from(lexeme),
+            line
         }
     }
 }
@@ -93,7 +84,7 @@ impl Lexer {
             }
         }
 
-        self.tokens.push(Token::from_str(TokenType::Eof, ""));
+        self.tokens.push(Token::new(TokenType::Eof, "".to_string(), self.line));
 
         return Ok(self.tokens.clone());
     }
@@ -120,7 +111,7 @@ impl Lexer {
     /// details on start
     fn add_token(&mut self, token_type: TokenType) -> Result<(), RedbellyError> {
         let lexeme: String = self.source[self.start..self.index].iter().clone().collect();
-        self.tokens.push(Token::new(token_type, lexeme));
+        self.tokens.push(Token::new(token_type, lexeme, self.line));
         return Ok(());
     }
 
@@ -336,7 +327,15 @@ fn get_keywords() -> HashMap<String, TokenType> {
 #[cfg(test)]
 mod lexer_tests {
     use super::*;
-
+    impl Token {
+        fn from_str(token_type: TokenType, lexeme: &str) -> Self {
+            Self {
+                token_type,
+                lexeme: String::from(lexeme),
+                line: 1
+            }
+        }
+    }
     #[test]
     fn test_single_characters() {
         let test_tokens: Vec<Token> = vec![
@@ -375,8 +374,8 @@ mod lexer_tests {
     #[test]
     fn test_comments() {
         let test_tokens: Vec<Token> = vec![
-            Token::from_str(TokenType::LessEqual, "<="),
-            Token::from_str(TokenType::Eof, ""),
+            Token::new(TokenType::LessEqual, "<=".to_string(), 2),
+            Token::new(TokenType::Eof, "".to_string(), 2),
         ];
         let string = String::from("// Comment which should be ignored\n<=");
         let mut lexer = Lexer::new(string.clone());

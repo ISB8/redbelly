@@ -1,4 +1,5 @@
 use lexer::Lexer;
+use parser::Parser;
 use std::{
     fmt::{self, Display},
     fs::File,
@@ -10,8 +11,16 @@ fn run(contents: String) {
     let result = lexer.scan();
     match result {
         Ok(tokens) => {
-            for token in tokens {
-                println!("{:?}", token)
+            let result = Parser::parse_tokens(tokens);
+            match result {
+                Ok(expr) => {
+                    println!("{}", expr);
+                }
+                Err(error) => {
+                    for err in error {
+                        println!("{}", err)
+                    }
+                }
             }
         }
         Err(error) => eprintln!("{:?}", error),

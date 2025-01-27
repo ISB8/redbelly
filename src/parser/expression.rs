@@ -5,7 +5,7 @@ use std::{
 
 use crate::lexer::{Token, TokenType};
 
-trait Expression {
+pub(crate) trait Expression {
     fn print(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result;
 }
 
@@ -15,7 +15,7 @@ impl Display for dyn Expression {
     }
 }
 
-struct Literal {
+pub struct Literal {
     value: TokenType,
 }
 
@@ -30,7 +30,7 @@ impl Expression for Literal {
         write!(f, "{}", self.value)
     }
 }
-struct Grouping {
+pub struct Grouping {
     expr: Rc<dyn Expression>,
 }
 
@@ -46,7 +46,7 @@ impl Expression for Grouping {
     }
 }
 
-struct Unary {
+pub struct Unary {
     operator: Token,
     right: Rc<dyn Expression>,
 }
@@ -59,11 +59,11 @@ impl Unary {
 
 impl Expression for Unary {
     fn print(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", parenthesize(&self.operator.lexeme(), vec![self.right.clone()]))
+        write!(f, "{}", parenthesize(&self.operator.lexeme, vec![self.right.clone()]))
     }
 }
 
-struct Binary {
+pub struct Binary {
     left: Rc<dyn Expression>,
     operator: Token,
     right: Rc<dyn Expression>,
@@ -81,7 +81,7 @@ impl Binary {
 
 impl Expression for Binary {
     fn print(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", parenthesize(&self.operator.lexeme(), vec![self.left.clone(), self.right.clone()]))
+        write!(f, "{}", parenthesize(&self.operator.lexeme, vec![self.left.clone(), self.right.clone()]))
     }
 }
 
@@ -109,10 +109,10 @@ mod tests {
     fn test_print() {
         let expr: Box<dyn Expression> = Box::new(Binary::new(
             Rc::new(Unary::new(
-                Token::new(TokenType::Minus, String::from("-")),
+                Token::new(TokenType::Minus, String::from("-"), 1),
                 Rc::new(Literal::new(TokenType::Number(123.))),
             )),
-            Token::new(TokenType::Star, String::from("*")),
+            Token::new(TokenType::Star, String::from("*"), 1),
             Rc::new(Grouping::new(Rc::new(Literal::new(TokenType::Number(
                 45.67,
             ))))),

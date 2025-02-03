@@ -14,10 +14,7 @@ fn run(contents: String) {
             let result = Parser::parse_tokens(tokens);
             match result {
                 Ok(expr) => {
-                    match interpret(expr) {
-                        Some(err) => eprintln!("{}", err),
-                        None => (),
-                    }
+                    if let Some(err) = interpret(expr) { eprintln!("{}", err) }
                 }
                 Err(error) => {
                     for err in error {
@@ -49,7 +46,7 @@ pub fn run_prompt() {
             Ok(_) => (),
             Err(error) => eprintln!("Error Reading Input: {}", error),
         };
-        if input == String::from("exit()\n") {
+        if input == *"exit()\n" {
             return;
         } else {
             run(input);

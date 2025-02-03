@@ -5,11 +5,9 @@ use redbelly::{run_file, run_prompt};
 // Todo: Return proper exit codes (Something to do with returning results)
 fn main() {
     let args: Vec<String> = env::args().collect();
-    if args.len() > 2 {
-        println!("Usage: redbelly [script]")
-    } else if args.len() == 2 {
-        run_file(&args[1]);
-    } else {
-        run_prompt();
+    match args.len().cmp(&2) {
+        std::cmp::Ordering::Less => run_prompt(),
+        std::cmp::Ordering::Equal => run_file(&args[1]),
+        std::cmp::Ordering::Greater => println!("Usage: redbelly [script]"),
     }
 }

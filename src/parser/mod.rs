@@ -21,7 +21,7 @@ impl Parser {
             }
         }
 
-        return Err(errors);
+        Err(errors)
     }
 
     /// Increments the index, then returns the token at index - 1
@@ -34,18 +34,18 @@ impl Parser {
 
     /// Returns the current index
     fn peek(&self) -> &Token {
-        return self
+        self
             .tokens
             .get(self.index)
-            .expect("Should never fail because index can never move beyond EOF token");
+            .expect("Should never fail because index can never move beyond EOF token")
     }
 
     /// Returns the previous index
     fn previous(&self) -> &Token {
-        return self
+        self
             .tokens
             .get(self.index - 1)
-            .expect("Should never fail because index can never move beyond EOF token");
+            .expect("Should never fail because index can never move beyond EOF token")
     }
 
     fn synchronize(&mut self) {
@@ -190,7 +190,7 @@ impl Parser {
             }
         }
 
-        return Err(ParseError::new("Expect ')' after expression", self.peek()));
+        Err(ParseError::new("Expect ')' after expression", self.peek()))
     }
 }
 

@@ -34,7 +34,7 @@ impl Display for TokenType {
                     write!(f, "{}", val)
                 } else {
                     // output the num without .0
-                    write!(f, "{}", val.clone() as isize)
+                    write!(f, "{}", *val as isize)
                 }
             }
             _ => write!(f, "{:?}", self),
@@ -53,7 +53,7 @@ impl Token {
     pub fn new(token_type: TokenType, lexeme: String, line: usize) -> Self {
         Self {
             token_type,
-            lexeme: String::from(lexeme),
+            lexeme,
             line,
         }
     }
@@ -94,14 +94,14 @@ impl Lexer {
         self.tokens
             .push(Token::new(TokenType::Eof, "".to_string(), self.line));
 
-        return Ok(self.tokens.clone());
+        Ok(self.tokens.clone())
     }
 
     /// Returns the character at the current index, then increments the current index. Panics if self.index is out of bounds
     fn consume(&mut self) -> &char {
         let c = self.source.get(self.index).expect("Out of Bounds");
         self.index += 1;
-        return c;
+        c
     }
 
     /// Looks at current index without consuming it. Returns none if the index is out of bounds.
@@ -120,7 +120,7 @@ impl Lexer {
     fn add_token(&mut self, token_type: TokenType) -> Result<(), RedbellyError> {
         let lexeme: String = self.source[self.start..self.index].iter().clone().collect();
         self.tokens.push(Token::new(token_type, lexeme, self.line));
-        return Ok(());
+        Ok(())
     }
 
     fn scan_token(&mut self) -> Result<(), RedbellyError> {
@@ -161,7 +161,7 @@ impl Lexer {
     }
 
     fn is_at_end(&self) -> bool {
-        return self.index >= self.source.len();
+        self.index >= self.source.len()
     }
 
     /// Checks if the next character matches 'expected', and if so consumes a character and returns it. Otherwise returns none
@@ -234,11 +234,8 @@ impl Lexer {
         self.consume_all_nums();
 
         // Check if has decible, if so, consumes it
-        match (self.peek(), is_num(self.peek_next().unwrap_or(&'\0'))) {
-            (Some('.'), true) => {
-                let _ = self.consume();
-            }
-            _ => (),
+        if let (Some('.'), true) = (self.peek(), is_num(self.peek_next().unwrap_or(&'\0'))) {
+            let _ = self.consume();
         }
 
         self.consume_all_nums();
@@ -256,33 +253,26 @@ impl Lexer {
 
     /// Consumes all characters that are numbers until it finds a character that is not a number.
     fn consume_all_nums(&mut self) {
-        loop {
-            match self.peek() {
-                Some(c) => {
-                    if is_num(c) {
-                        self.consume();
-                    } else {
-                        break;
-                    }
-                }
-                None => break,
+        while let Some(c) = self.peek()  {
+            if is_num(c) {
+                self.consume();
+            } else {
+                break;
             }
-        }
+        } 
     }
 
     fn handle_identifiers(&mut self) -> Result<(), RedbellyError> {
         loop {
             let c = self.peek();
-            if c == None {
+            if c.is_none() {
                 break;
+            } else if is_alpha_numeric(
+                c.expect("If value is invalid, it will already have been returned"),
+            ) {
+                self.consume();
             } else {
-                if is_alpha_numeric(
-                    c.expect("If value is invalid, it will already have been returned"),
-                ) {
-                    self.consume();
-                } else {
-                    break;
-                }
+                break;
             }
         }
 
@@ -295,18 +285,18 @@ impl Lexer {
 }
 
 fn is_num(c: &char) -> bool {
-    if c >= &'0' && c <= &'9' {
+    if (&'0'..=&'9').contains(&c) {
         return true;
     }
     false
 }
 
 fn is_alpha(c: &char) -> bool {
-    return (c >= &'a' && c <= &'z') || (c >= &'A' && c <= &'Z') || c == &'_';
+    (&'a'..=&'z').contains(&c) || (&'A'..=&'Z').contains(&c) || c == &'_'
 }
 
 fn is_alpha_numeric(c: &char) -> bool {
-    return is_alpha(c) || is_num(c);
+    is_alpha(c) || is_num(c)
 }
 
 fn get_keywords() -> HashMap<String, TokenType> {

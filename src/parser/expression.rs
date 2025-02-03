@@ -54,7 +54,7 @@ impl Expression for Grouping {
     }
 
     fn evaluate(&self) -> Result<TokenType, ParseError> {
-        Ok(self.expr.evaluate()?)
+        self.expr.evaluate()
     }
 }
 
@@ -146,34 +146,34 @@ impl Expression for Binary {
                 if let (Some(left_num), Some(right_num)) =
                     (try_cast_to_f64(&left), try_cast_to_f64(&right))
                 {
-                    return Ok(TokenType::Number(left_num - right_num));
+                    Ok(TokenType::Number(left_num - right_num))
                 } else {
-                    return Err(ParseError::new("\"-\" not used on number", &self.operator));
+                    Err(ParseError::new("\"-\" not used on number", &self.operator))
                 }
             }
             TokenType::Slash => {
                 if let (Some(left_num), Some(right_num)) =
                     (try_cast_to_f64(&left), try_cast_to_f64(&right))
                 {
-                    return Ok(TokenType::Number(left_num / right_num));
+                    Ok(TokenType::Number(left_num / right_num))
                 } else {
-                    return Err(ParseError::new("\"/\" not used on number", &self.operator));
+                    Err(ParseError::new("\"/\" not used on number", &self.operator))
                 }
             }
             TokenType::Star => {
                 if let (Some(left_num), Some(right_num)) =
                     (try_cast_to_f64(&left), try_cast_to_f64(&right))
                 {
-                    return Ok(TokenType::Number(left_num * right_num));
+                    Ok(TokenType::Number(left_num * right_num))
                 } else {
-                    return Err(ParseError::new("\"*\" not used on number", &self.operator));
+                    Err(ParseError::new("\"*\" not used on number", &self.operator))
                 }
             }
             TokenType::Plus => {
                 if let (Some(left_str), Some(right_num)) =
                     (try_cast_to_f64(&left), try_cast_to_f64(&right))
                 {
-                    return Ok(TokenType::Number(left_str + right_num));
+                    Ok(TokenType::Number(left_str + right_num))
                 } else if let (Some(left_str), Some(right_str)) =
                     (try_cast_to_string(&left), try_cast_to_string(&right))
                 {
@@ -190,60 +190,60 @@ impl Expression for Binary {
                 if let (Some(left_num), Some(right_num)) =
                     (try_cast_to_f64(&left), try_cast_to_f64(&right))
                 {
-                    return match left_num > right_num {
+                    match left_num > right_num {
                         true => Ok(TokenType::True),
                         false => Ok(TokenType::False),
-                    };
+                    }
                 } else {
-                    return Err(ParseError::new(
+                    Err(ParseError::new(
                         "Operator not used on number",
                         &self.operator,
-                    ));
+                    ))
                 }
             }
             TokenType::GreaterEqual => {
                 if let (Some(left_num), Some(right_num)) =
                     (try_cast_to_f64(&left), try_cast_to_f64(&right))
                 {
-                    return match left_num >= right_num {
+                    match left_num >= right_num {
                         true => Ok(TokenType::True),
                         false => Ok(TokenType::False),
-                    };
+                    }
                 } else {
-                    return Err(ParseError::new(
+                    Err(ParseError::new(
                         "Operator not used on number",
                         &self.operator,
-                    ));
+                    ))
                 }
             }
             TokenType::Less => {
                 if let (Some(left_num), Some(right_num)) =
                     (try_cast_to_f64(&left), try_cast_to_f64(&right))
                 {
-                    return match left_num < right_num {
+                    match left_num < right_num {
                         true => Ok(TokenType::True),
                         false => Ok(TokenType::False),
-                    };
+                    }
                 } else {
-                    return Err(ParseError::new(
+                    Err(ParseError::new(
                         "Operator not used on number",
                         &self.operator,
-                    ));
+                    ))
                 }
             }
             TokenType::LessEqual => {
                 if let (Some(left_num), Some(right_num)) =
                     (try_cast_to_f64(&left), try_cast_to_f64(&right))
                 {
-                    return match left_num <= right_num {
+                    match left_num <= right_num {
                         true => Ok(TokenType::True),
                         false => Ok(TokenType::False),
-                    };
+                    }
                 } else {
-                    return Err(ParseError::new(
+                    Err(ParseError::new(
                         "Operator not used on number",
                         &self.operator,
-                    ));
+                    ))
                 }
             }
             // Equality Operators
@@ -255,7 +255,7 @@ impl Expression for Binary {
                 true => Ok(TokenType::True),
                 false => Ok(TokenType::False),
             },
-            _ => return Err(ParseError::new("Unknown Operator", &self.operator)),
+            _ => Err(ParseError::new("Unknown Operator", &self.operator)),
         }
     }
 }
@@ -272,7 +272,7 @@ fn parenthesize(name: &str, exprs: Vec<Rc<dyn Expression>>) -> String {
 
 fn try_cast_to_f64(token_type: &TokenType) -> Option<f64> {
     match token_type {
-        TokenType::Number(num) => Some(num.clone()),
+        TokenType::Number(num) => Some(*num),
         _ => None,
     }
 }

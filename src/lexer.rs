@@ -29,7 +29,14 @@ impl Display for TokenType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             TokenType::String(val) => write!(f, "{}", val),
-            TokenType::Number(val) => write!(f, "{}", val),
+            TokenType::Number(val) => {
+                if val % 1. != 0. {
+                    write!(f, "{}", val)
+                } else {
+                    // output the num without .0
+                    write!(f, "{}", val.clone() as isize)
+                }
+            }
             _ => write!(f, "{:?}", self),
         }
     }
@@ -47,7 +54,7 @@ impl Token {
         Self {
             token_type,
             lexeme: String::from(lexeme),
-            line
+            line,
         }
     }
 }
@@ -58,7 +65,7 @@ pub struct Lexer {
     index: usize,
     line: usize,
     start: usize,
-    keywords: HashMap<String, TokenType>
+    keywords: HashMap<String, TokenType>,
 }
 
 impl Lexer {
@@ -84,7 +91,8 @@ impl Lexer {
             }
         }
 
-        self.tokens.push(Token::new(TokenType::Eof, "".to_string(), self.line));
+        self.tokens
+            .push(Token::new(TokenType::Eof, "".to_string(), self.line));
 
         return Ok(self.tokens.clone());
     }
@@ -143,7 +151,7 @@ impl Lexer {
             _ => {
                 if is_num(c) {
                     self.handle_numbers()
-                } else if is_alpha(c){
+                } else if is_alpha(c) {
                     self.handle_identifiers()
                 } else {
                     Err(RedbellyError::new("Unexpected Character", self.line))
@@ -226,10 +234,7 @@ impl Lexer {
         self.consume_all_nums();
 
         // Check if has decible, if so, consumes it
-        match (
-            self.peek(),
-            is_num(self.peek_next().unwrap_or(&'\0')),
-        ) {
+        match (self.peek(), is_num(self.peek_next().unwrap_or(&'\0'))) {
             (Some('.'), true) => {
                 let _ = self.consume();
             }
@@ -265,13 +270,15 @@ impl Lexer {
         }
     }
 
-    fn handle_identifiers(&mut self) -> Result<(), RedbellyError>  {
+    fn handle_identifiers(&mut self) -> Result<(), RedbellyError> {
         loop {
             let c = self.peek();
             if c == None {
                 break;
             } else {
-                if is_alpha_numeric(c.expect("If value is invalid, it will already have been returned")) {
+                if is_alpha_numeric(
+                    c.expect("If value is invalid, it will already have been returned"),
+                ) {
                     self.consume();
                 } else {
                     break;
@@ -282,7 +289,7 @@ impl Lexer {
         let text: String = self.source[self.start..self.index].iter().clone().collect();
         match self.keywords.get(&text) {
             Some(val) => self.add_token(val.clone()),
-            None => self.add_token(TokenType::Identifier)
+            None => self.add_token(TokenType::Identifier),
         }
     }
 }
@@ -304,22 +311,22 @@ fn is_alpha_numeric(c: &char) -> bool {
 
 fn get_keywords() -> HashMap<String, TokenType> {
     let mut map = HashMap::new();
-    map.insert("and".to_string(),    TokenType::And);
-    map.insert("class".to_string(),  TokenType::Class);
-    map.insert("else".to_string(),   TokenType::Else);
-    map.insert("false".to_string(),  TokenType::False);
-    map.insert("for".to_string(),    TokenType::For);
-    map.insert("func".to_string(),    TokenType::Func);
-    map.insert("if".to_string(),     TokenType::If);
-    map.insert("nil".to_string(),    TokenType::Nil);
-    map.insert("or".to_string(),     TokenType::Or);
-    map.insert("print".to_string(),  TokenType::Print);
+    map.insert("and".to_string(), TokenType::And);
+    map.insert("class".to_string(), TokenType::Class);
+    map.insert("else".to_string(), TokenType::Else);
+    map.insert("false".to_string(), TokenType::False);
+    map.insert("for".to_string(), TokenType::For);
+    map.insert("func".to_string(), TokenType::Func);
+    map.insert("if".to_string(), TokenType::If);
+    map.insert("nil".to_string(), TokenType::Nil);
+    map.insert("or".to_string(), TokenType::Or);
+    map.insert("print".to_string(), TokenType::Print);
     map.insert("return".to_string(), TokenType::Return);
-    map.insert("super".to_string(),  TokenType::Super);
-    map.insert("this".to_string(),   TokenType::This);
-    map.insert("true".to_string(),   TokenType::True);
-    map.insert("let".to_string(),    TokenType::Let);
-    map.insert("while".to_string(),  TokenType::While);
+    map.insert("super".to_string(), TokenType::Super);
+    map.insert("this".to_string(), TokenType::This);
+    map.insert("true".to_string(), TokenType::True);
+    map.insert("let".to_string(), TokenType::Let);
+    map.insert("while".to_string(), TokenType::While);
 
     map
 }
@@ -332,7 +339,7 @@ mod lexer_tests {
             Self {
                 token_type,
                 lexeme: String::from(lexeme),
-                line: 1
+                line: 1,
             }
         }
     }

@@ -1,4 +1,4 @@
-use std::{fmt::Display, rc::Rc, vec};
+use std::{fmt::{Debug, Display}, rc::Rc, vec};
 
 use crate::lexer::{Token, TokenType};
 
@@ -12,7 +12,7 @@ pub struct Parser {
 impl Parser {
     pub fn parse_tokens(tokens: Vec<Token>) -> Result<Rc<dyn Expression>, Vec<ParseError>> {
         let mut errors = vec![];
-        let mut parser = Self {tokens, index: 0, };
+        let mut parser = Self { tokens, index: 0 };
 
         match parser.expression() {
             Ok(expr) => return Ok(expr),
@@ -57,7 +57,9 @@ impl Parser {
             }
             use crate::lexer::TokenType as t;
             match self.peek().token_type {
-                t::Class | t::Func | t::Let | t::For | t::If | t::While | t::Print | t::Return => return,
+                t::Class | t::Func | t::Let | t::For | t::If | t::While | t::Print | t::Return => {
+                    return
+                }
                 _ => (),
             }
 
@@ -94,7 +96,7 @@ impl Parser {
         self.equality()
     }
 
-    fn equality(&mut self) -> Result<Rc<dyn Expression>, ParseError>{
+    fn equality(&mut self) -> Result<Rc<dyn Expression>, ParseError> {
         let mut expr = self.comparison()?;
 
         while self.conditional_consume(vec![TokenType::BangEqual, TokenType::EqualEqual]) {
@@ -158,9 +160,15 @@ impl Parser {
     }
 
     fn primary(&mut self) -> Result<Rc<dyn Expression>, ParseError> {
-        if self.conditional_consume(vec![TokenType::False]) {return Ok(Rc::from(Literal::new(TokenType::False)))}
-        if self.conditional_consume(vec![TokenType::True]) {return Ok(Rc::from(Literal::new(TokenType::True)))}
-        if self.conditional_consume(vec![TokenType::Nil]) {return Ok(Rc::from(Literal::new(TokenType::Nil)))}
+        if self.conditional_consume(vec![TokenType::False]) {
+            return Ok(Rc::from(Literal::new(TokenType::False)));
+        }
+        if self.conditional_consume(vec![TokenType::True]) {
+            return Ok(Rc::from(Literal::new(TokenType::True)));
+        }
+        if self.conditional_consume(vec![TokenType::Nil]) {
+            return Ok(Rc::from(Literal::new(TokenType::Nil)));
+        }
 
         // For matching tokens with inner values
         match self.peek().token_type.clone() {
@@ -186,13 +194,23 @@ impl Parser {
     }
 }
 
+pub fn interpret(expr: Rc<dyn Expression>) -> Option<ParseError> {
+    match expr.evaluate() {
+        Ok(evaluated) => {
+            println!("{}", evaluated);
+            None
+        }
+        Err(err) => Some(err),
+    }
+}
+
 pub struct ParseError {
     message: String,
     token: Token,
 }
 
 impl ParseError {
-    fn new(message: &str, token: &Token) -> Self {
+    pub fn new(message: &str, token: &Token) -> Self {
         Self {
             message: String::from(message),
             token: token.clone(),
@@ -203,12 +221,21 @@ impl ParseError {
 impl Display for ParseError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.token.token_type == TokenType::Eof {
-            write!(f, "[Line {}]: at end {}", self.token.line, self.message)
+            write!(f, "[Line {}]: {} at end", self.token.line, self.message)
         } else {
-            write!(f, "[Line {}]: {} at {}", self.token.line, self.token.lexeme, self.message )
+            write!(
+                f,
+                "[Line {}]: {} at \"{}\"",
+                self.token.line, self.message, self.token.lexeme
+            )
         }
-        
+    }
+}
+impl Debug for ParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self)
     }
 }
 
 mod expression;
+mod statment;

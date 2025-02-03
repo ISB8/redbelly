@@ -1,5 +1,5 @@
 use lexer::Lexer;
-use parser::Parser;
+use parser::{interpret, Parser};
 use std::{
     fmt::{self, Display},
     fs::File,
@@ -14,7 +14,10 @@ fn run(contents: String) {
             let result = Parser::parse_tokens(tokens);
             match result {
                 Ok(expr) => {
-                    println!("{}", expr);
+                    match interpret(expr) {
+                        Some(err) => eprintln!("{}", err),
+                        None => (),
+                    }
                 }
                 Err(error) => {
                     for err in error {

@@ -60,7 +60,8 @@ impl Statement for VariableStatement {
     fn execute(&self, environment: &mut Environment) -> Result<(), ParseError> {
         match &self.initializer {
             Some(expr) => {
-                environment.define(self.name.lexeme.clone(), expr.evaluate(environment)?);
+                let val = expr.evaluate(environment)?;
+                environment.define(self.name.lexeme.clone(), val);
                 Ok(())
             }
             None => {
@@ -70,3 +71,5 @@ impl Statement for VariableStatement {
         }
     }
 }
+
+// TODO: Tests

@@ -7,7 +7,9 @@ use std::{
 use crate::lexer::{Token, TokenType};
 
 use environment::Environment;
-use expression::{Binary, Expression, Grouping, Literal, Unary, VariableExpression};
+use expression::{
+    AssignmentExpression, Binary, Expression, Grouping, Literal, Unary, VariableExpression,
+};
 use statement::*;
 
 pub struct Parser {
@@ -168,7 +170,25 @@ impl Parser {
 // This impl block contains all the grammer rules
 impl Parser {
     fn expression(&mut self) -> Result<Rc<dyn Expression>, ParseError> {
-        self.equality()
+        self.assignment()
+    }
+
+    fn assignment(&mut self) -> Result<Rc<dyn Expression>, ParseError> {
+        let expr = self.equality()?;
+
+        if self.conditional_consume(vec![TokenType::Equal]) {
+            let equals = self.previous().clone();
+            let value = self.assignment()?;
+
+            match expr.to_any().downcast_ref::<VariableExpression>() {
+                Some(var) => {
+                    let name = var.name.clone();
+                    return Ok(Rc::from(AssignmentExpression::new(name, value)));
+                }
+                None => return Err(ParseError::new("Invalid assignment target", &equals)),
+            };
+        }
+        Ok(expr)
     }
 
     fn equality(&mut self) -> Result<Rc<dyn Expression>, ParseError> {

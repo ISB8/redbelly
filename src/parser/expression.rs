@@ -1,11 +1,12 @@
-use std::rc::Rc;
+use std::{any::Any, rc::Rc};
 
 use crate::lexer::{Token, TokenType};
 
 use super::{environment::Environment, ParseError};
 
 pub(crate) trait Expression {
-    fn evaluate(&self, environment: &Environment) -> Result<TokenType, ParseError>;
+    fn evaluate(&self, environment: &mut Environment) -> Result<TokenType, ParseError>;
+    fn to_any(&self) -> &dyn Any;
 }
 
 pub struct Literal {
@@ -19,9 +20,13 @@ impl Literal {
 }
 
 impl Expression for Literal {
-    fn evaluate(&self, environment: &Environment) -> Result<TokenType, ParseError> {
+    fn evaluate(&self, environment: &mut Environment) -> Result<TokenType, ParseError> {
         let _ = environment;
         Ok(self.value.clone())
+    }
+
+    fn to_any(&self) -> &dyn Any {
+        self
     }
 }
 pub struct Grouping {
@@ -35,8 +40,11 @@ impl Grouping {
 }
 
 impl Expression for Grouping {
-    fn evaluate(&self, environment: &Environment) -> Result<TokenType, ParseError> {
+    fn evaluate(&self, environment: &mut Environment) -> Result<TokenType, ParseError> {
         self.expr.evaluate(environment)
+    }
+    fn to_any(&self) -> &dyn Any {
+        self
     }
 }
 
@@ -52,7 +60,7 @@ impl Unary {
 }
 
 impl Expression for Unary {
-    fn evaluate(&self, environment: &Environment) -> Result<TokenType, ParseError> {
+    fn evaluate(&self, environment: &mut Environment) -> Result<TokenType, ParseError> {
         let expr = self.right.evaluate(environment)?;
 
         match self.operator.token_type {
@@ -80,6 +88,9 @@ impl Expression for Unary {
 
         Err(ParseError::new("Invalid Operator", &self.operator))
     }
+    fn to_any(&self) -> &dyn Any {
+        self
+    }
 }
 
 pub struct Binary {
@@ -99,7 +110,7 @@ impl Binary {
 }
 
 impl Expression for Binary {
-    fn evaluate(&self, environment: &Environment) -> Result<TokenType, ParseError> {
+    fn evaluate(&self, environment: &mut Environment) -> Result<TokenType, ParseError> {
         let left = self.left.evaluate(environment)?;
         let right = self.right.evaluate(environment)?;
 
@@ -221,10 +232,13 @@ impl Expression for Binary {
             _ => Err(ParseError::new("Unknown Operator", &self.operator)),
         }
     }
+    fn to_any(&self) -> &dyn Any {
+        self
+    }
 }
 
 pub struct VariableExpression {
-    name: Token,
+    pub name: Token,
 }
 
 impl VariableExpression {
@@ -234,8 +248,33 @@ impl VariableExpression {
 }
 
 impl Expression for VariableExpression {
-    fn evaluate(&self, environment: &Environment) -> Result<TokenType, ParseError> {
+    fn evaluate(&self, environment: &mut Environment) -> Result<TokenType, ParseError> {
         Ok(environment.get(self.name.clone())?.clone())
+    }
+    fn to_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+pub struct AssignmentExpression {
+    name: Token,
+    value: Rc<dyn Expression>,
+}
+
+impl AssignmentExpression {
+    pub fn new(name: Token, value: Rc<dyn Expression>) -> Self {
+        Self { name, value }
+    }
+}
+
+impl Expression for AssignmentExpression {
+    fn evaluate(&self, environment: &mut Environment) -> Result<TokenType, ParseError> {
+        let value = self.value.evaluate(environment)?;
+        environment.assign(self.name.clone(), value.clone());
+        Ok(value)
+    }
+    fn to_any(&self) -> &dyn Any {
+        self
     }
 }
 
@@ -284,7 +323,7 @@ mod tests {
         assert_eq!(
             Parser::parse_tokens_to_expr(result.unwrap())
                 .unwrap()
-                .evaluate(&Environment::new())
+                .evaluate(&mut Environment::new())
                 .unwrap(),
             TokenType::Number(-0.5517241379310347)
         );
@@ -297,7 +336,7 @@ mod tests {
         assert_eq!(
             Parser::parse_tokens_to_expr(result.unwrap())
                 .unwrap()
-                .evaluate(&Environment::new())
+                .evaluate(&mut Environment::new())
                 .unwrap(),
             TokenType::String("foobar".to_string())
         );

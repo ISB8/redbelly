@@ -1,2 +1,7 @@
-let foo = 5;
-print foo;
+let hello = "hello";
+let world = "world";
+print hello + " " + world;
+
+let hello = "foo";
+
+print hello;

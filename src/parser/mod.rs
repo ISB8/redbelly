@@ -1,8 +1,14 @@
-use std::{fmt::{Debug, Display}, rc::Rc, vec};
+use std::{
+    fmt::{Debug, Display},
+    rc::Rc,
+    vec,
+};
 
 use crate::lexer::{Token, TokenType};
 
-use expression::{Binary, Expression, Grouping, Literal, Unary};
+use environment::Environment;
+use expression::{Binary, Expression, Grouping, Literal, Unary, VariableExpression};
+use statement::*;
 
 pub struct Parser {
     tokens: Vec<Token>,
@@ -10,18 +16,25 @@ pub struct Parser {
 }
 
 impl Parser {
-    pub fn parse_tokens(tokens: Vec<Token>) -> Result<Rc<dyn Expression>, Vec<ParseError>> {
+    pub fn parse_tokens(tokens: Vec<Token>) -> Result<Vec<Rc<dyn Statement>>, Vec<ParseError>> {
         let mut errors = vec![];
         let mut parser = Self { tokens, index: 0 };
 
-        match parser.expression() {
-            Ok(expr) => return Ok(expr),
-            Err(err) => {
-                errors.push(err);
+        let mut statements = vec![];
+
+        while !parser.is_at_end() {
+            match parser.declaration() {
+                Ok(stmt) => statements.push(stmt),
+                Err(error) => {
+                    errors.push(error);
+                }
             }
         }
-
-        Err(errors)
+        if !errors.is_empty() {
+            Err(errors)
+        } else {
+            Ok(statements)
+        }
     }
 
     /// Increments the index, then returns the token at index - 1
@@ -34,16 +47,14 @@ impl Parser {
 
     /// Returns the current index
     fn peek(&self) -> &Token {
-        self
-            .tokens
+        self.tokens
             .get(self.index)
             .expect("Should never fail because index can never move beyond EOF token")
     }
 
     /// Returns the previous index
     fn previous(&self) -> &Token {
-        self
-            .tokens
+        self.tokens
             .get(self.index - 1)
             .expect("Should never fail because index can never move beyond EOF token")
     }
@@ -70,7 +81,7 @@ impl Parser {
     /// Checks if the token at index matches a given pattern
     fn conditional_consume(&mut self, types: Vec<TokenType>) -> bool {
         for i in types {
-            if self.check(i) {
+            if self.check(i.clone()) {
                 self.consume();
                 return true;
             }
@@ -87,6 +98,70 @@ impl Parser {
 
     fn is_at_end(&self) -> bool {
         self.peek().token_type == TokenType::Eof
+    }
+}
+
+// Implements Statements
+impl Parser {
+    fn declaration(&mut self) -> Result<Rc<dyn Statement>, ParseError> {
+        if self.conditional_consume(vec![TokenType::Let]) {
+            match self.var_declaration() {
+                Err(error) => {
+                    self.synchronize();
+                    return Err(error);
+                }
+                Ok(stmt) => return Ok(stmt),
+            }
+        }
+        self.statement()
+    }
+
+    fn var_declaration(&mut self) -> Result<Rc<dyn Statement>, ParseError> {
+        if !self.conditional_consume(vec![TokenType::Identifier]) {
+            return Err(ParseError::new("Expect Variable name", self.previous()));
+        }
+
+        let name = self.previous().clone();
+
+        let mut initializer = None;
+        if self.conditional_consume(vec![TokenType::Equal]) {
+            initializer = Some(self.expression()?);
+        }
+
+        if !self.conditional_consume(vec![TokenType::Semicolon]) {
+            return Err(ParseError::new(
+                "Expect Semicolon after variable declaration",
+                self.previous(),
+            ));
+        }
+
+        Ok(Rc::from(VariableStatement::new(name, initializer)))
+    }
+
+    fn statement(&mut self) -> Result<Rc<dyn Statement>, ParseError> {
+        if self.conditional_consume(vec![TokenType::Print]) {
+            return self.print_statement();
+        }
+
+        self.expression_statement()
+    }
+
+    fn expression_statement(&mut self) -> Result<Rc<dyn Statement>, ParseError> {
+        let expr = self.expression()?;
+        if self.conditional_consume(vec![TokenType::Semicolon]) {
+            Ok(Rc::from(ExpressionStatement::new(expr)))
+        } else {
+            Err(ParseError::new("Expected ; after expression", self.peek()))
+        }
+    }
+
+    fn print_statement(&mut self) -> Result<Rc<dyn Statement>, ParseError> {
+        let expr = self.expression()?;
+        if self.conditional_consume(vec![TokenType::Semicolon]) {
+            Ok(Rc::from(PrintStatement::new(expr)))
+        } else {
+            Err(ParseError::new("Expected ; after value", self.peek()))
+        }
     }
 }
 
@@ -182,7 +257,9 @@ impl Parser {
             }
             _ => (),
         }
-
+        if self.conditional_consume(vec![TokenType::Identifier]) {
+            return Ok(Rc::from(VariableExpression::new(self.previous().clone())));
+        }
         if self.conditional_consume(vec![TokenType::LeftParen]) {
             let expr = self.expression()?;
             if self.conditional_consume(vec![TokenType::RightParen]) {
@@ -190,18 +267,21 @@ impl Parser {
             }
         }
 
-        Err(ParseError::new("Expect ')' after expression", self.peek()))
+        Err(ParseError::new("Expect Expression", self.peek()))
     }
 }
 
-pub fn interpret(expr: Rc<dyn Expression>) -> Option<ParseError> {
-    match expr.evaluate() {
-        Ok(evaluated) => {
-            println!("{}", evaluated);
-            None
-        }
-        Err(err) => Some(err),
+pub fn interpret(
+    statements: Vec<Rc<dyn Statement>>,
+    environment: &mut Environment,
+) -> Option<ParseError> {
+    for statement in statements {
+        match statement.execute(environment) {
+            Ok(()) => (),
+            Err(error) => return Some(error),
+        };
     }
+    None
 }
 
 pub struct ParseError {
@@ -237,5 +317,6 @@ impl Debug for ParseError {
     }
 }
 
+pub mod environment;
 mod expression;
-mod statment;
+mod statement;

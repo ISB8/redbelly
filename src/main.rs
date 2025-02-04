@@ -1,8 +1,7 @@
-use std::env;
 use redbelly::{run_file, run_prompt};
+use std::env;
 
-
-// Todo: Return proper exit codes (Something to do with returning results)
+// TODO: Return proper exit codes (Something to do with returning results)
 fn main() {
     let args: Vec<String> = env::args().collect();
     match args.len().cmp(&2) {

@@ -1,22 +1,11 @@
-use std::{
-    fmt::{self, Display},
-    rc::Rc,
-};
+use std::rc::Rc;
 
 use crate::lexer::{Token, TokenType};
 
-use super::ParseError;
+use super::{environment::Environment, ParseError};
 
 pub(crate) trait Expression {
-    fn print(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result;
-
-    fn evaluate(&self) -> Result<TokenType, ParseError>;
-}
-
-impl Display for dyn Expression {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.print(f)
-    }
+    fn evaluate(&self, environment: &Environment) -> Result<TokenType, ParseError>;
 }
 
 pub struct Literal {
@@ -30,11 +19,8 @@ impl Literal {
 }
 
 impl Expression for Literal {
-    fn print(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.value)
-    }
-
-    fn evaluate(&self) -> Result<TokenType, ParseError> {
+    fn evaluate(&self, environment: &Environment) -> Result<TokenType, ParseError> {
+        let _ = environment;
         Ok(self.value.clone())
     }
 }
@@ -49,12 +35,8 @@ impl Grouping {
 }
 
 impl Expression for Grouping {
-    fn print(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", parenthesize("group", vec![self.expr.clone()]))
-    }
-
-    fn evaluate(&self) -> Result<TokenType, ParseError> {
-        self.expr.evaluate()
+    fn evaluate(&self, environment: &Environment) -> Result<TokenType, ParseError> {
+        self.expr.evaluate(environment)
     }
 }
 
@@ -70,16 +52,8 @@ impl Unary {
 }
 
 impl Expression for Unary {
-    fn print(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            parenthesize(&self.operator.lexeme, vec![self.right.clone()])
-        )
-    }
-
-    fn evaluate(&self) -> Result<TokenType, ParseError> {
-        let expr = self.right.evaluate()?;
+    fn evaluate(&self, environment: &Environment) -> Result<TokenType, ParseError> {
+        let expr = self.right.evaluate(environment)?;
 
         match self.operator.token_type {
             TokenType::Minus => {
@@ -125,20 +99,9 @@ impl Binary {
 }
 
 impl Expression for Binary {
-    fn print(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            parenthesize(
-                &self.operator.lexeme,
-                vec![self.left.clone(), self.right.clone()]
-            )
-        )
-    }
-
-    fn evaluate(&self) -> Result<TokenType, ParseError> {
-        let left = self.left.evaluate()?;
-        let right = self.right.evaluate()?;
+    fn evaluate(&self, environment: &Environment) -> Result<TokenType, ParseError> {
+        let left = self.left.evaluate(environment)?;
+        let right = self.right.evaluate(environment)?;
 
         match self.operator.token_type {
             // Arithmetic Operators
@@ -260,14 +223,20 @@ impl Expression for Binary {
     }
 }
 
-fn parenthesize(name: &str, exprs: Vec<Rc<dyn Expression>>) -> String {
-    let mut string = String::new();
-    string = string + "(" + name;
+pub struct VariableExpression {
+    name: Token,
+}
 
-    for expr in exprs {
-        string = string + " " + &format!("{}", expr);
+impl VariableExpression {
+    pub fn new(name: Token) -> Self {
+        Self { name }
     }
-    string + ")"
+}
+
+impl Expression for VariableExpression {
+    fn evaluate(&self, environment: &Environment) -> Result<TokenType, ParseError> {
+        Ok(environment.get(self.name.clone())?.clone())
+    }
 }
 
 fn try_cast_to_f64(token_type: &TokenType) -> Option<f64> {
@@ -288,36 +257,34 @@ fn try_cast_to_string(token_type: &TokenType) -> Option<String> {
 mod tests {
     use std::rc::Rc;
 
-    use super::Grouping;
     use crate::{
         lexer::{Lexer, Token, TokenType},
-        parser::{
-            expression::{Binary, Expression, Literal, Unary},
-            Parser,
-        },
+        parser::{environment::Environment, expression::Expression, ParseError, Parser},
     };
-    #[test]
-    fn test_print() {
-        let expr: Box<dyn Expression> = Box::new(Binary::new(
-            Rc::new(Unary::new(
-                Token::new(TokenType::Minus, String::from("-"), 1),
-                Rc::new(Literal::new(TokenType::Number(123.))),
-            )),
-            Token::new(TokenType::Star, String::from("*"), 1),
-            Rc::new(Grouping::new(Rc::new(Literal::new(TokenType::Number(
-                45.67,
-            ))))),
-        ));
-        assert_eq!(format!("{}", expr), "(* (- 123) (group 45.67))");
+
+    impl Parser {
+        fn parse_tokens_to_expr(tokens: Vec<Token>) -> Result<Rc<dyn Expression>, Vec<ParseError>> {
+            let mut errors = vec![];
+            let mut parser = Self { tokens, index: 0 };
+
+            match parser.expression() {
+                Ok(expr) => return Ok(expr),
+                Err(err) => {
+                    errors.push(err);
+                }
+            }
+
+            Err(errors)
+        }
     }
     #[test]
     fn test_expr_eval() {
         let mut lexer = Lexer::new("1 + 3 * 9 / (3.6 + 3 * -7 )".to_string());
         let result = lexer.scan();
         assert_eq!(
-            Parser::parse_tokens(result.unwrap())
+            Parser::parse_tokens_to_expr(result.unwrap())
                 .unwrap()
-                .evaluate()
+                .evaluate(&Environment::new())
                 .unwrap(),
             TokenType::Number(-0.5517241379310347)
         );
@@ -328,9 +295,9 @@ mod tests {
         let mut lexer = Lexer::new("\"foo\" + \"bar\"".to_string());
         let result = lexer.scan();
         assert_eq!(
-            Parser::parse_tokens(result.unwrap())
+            Parser::parse_tokens_to_expr(result.unwrap())
                 .unwrap()
-                .evaluate()
+                .evaluate(&Environment::new())
                 .unwrap(),
             TokenType::String("foobar".to_string())
         );

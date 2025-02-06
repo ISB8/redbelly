@@ -20,7 +20,6 @@ impl PrintStatement {
 
 impl Statement for PrintStatement {
     fn execute(&self, environment: &mut Environment) -> Result<(), ParseError> {
-        let _ = environment;
         let val = self.expr.evaluate(environment)?;
         println!("{}", val);
         Ok(())
@@ -72,4 +71,30 @@ impl Statement for VariableStatement {
     }
 }
 
-// TODO: Tests
+pub struct BlockStatement {
+    statements: Vec<Rc<dyn Statement>>,
+}
+
+impl BlockStatement {
+    pub fn new(statements: Vec<Rc<dyn Statement>>) -> Self {
+        Self { statements }
+    }
+}
+
+impl Statement for BlockStatement {
+    fn execute(&self, environment: &mut Environment) -> Result<(), ParseError> {
+        let mut inner_env = environment.clone().enclosed();
+
+        for stmt in &self.statements {
+            stmt.execute(&mut inner_env)?
+        }
+
+        let new_env = inner_env
+            .release_enclosing()
+            .expect("Never fails as inner_env always has enclosed val");
+        environment.values = new_env.values;
+        environment.enclosing = new_env.enclosing;
+
+        Ok(())
+    }
+}

@@ -35,12 +35,12 @@ pub fn run_file(file_path: &String) {
         .expect("Invalid File Path")
         .read_to_string(&mut contents)
         .expect("Invalid File Contents");
-    run(contents, &mut Environment::new());
+    run(contents, &mut Environment::new(None));
     // Proper exit codes one day
 }
 
 pub fn run_prompt() {
-    let mut environment = Environment::new();
+    let mut environment = Environment::new(None);
     loop {
         print!(">");
         let _ = stdout().flush();

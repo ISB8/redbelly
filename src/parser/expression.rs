@@ -270,9 +270,12 @@ impl AssignmentExpression {
 impl Expression for AssignmentExpression {
     fn evaluate(&self, environment: &mut Environment) -> Result<TokenType, ParseError> {
         let value = self.value.evaluate(environment)?;
-        environment.assign(self.name.clone(), value.clone());
-        Ok(value)
+        match environment.assign(self.name.clone(), value.clone()) {
+            Some(error) => Err(error),
+            None => Ok(value),
+        }
     }
+
     fn to_any(&self) -> &dyn Any {
         self
     }
@@ -323,7 +326,7 @@ mod tests {
         assert_eq!(
             Parser::parse_tokens_to_expr(result.unwrap())
                 .unwrap()
-                .evaluate(&mut Environment::new())
+                .evaluate(&mut Environment::new(None))
                 .unwrap(),
             TokenType::Number(-0.5517241379310347)
         );
@@ -336,7 +339,7 @@ mod tests {
         assert_eq!(
             Parser::parse_tokens_to_expr(result.unwrap())
                 .unwrap()
-                .evaluate(&mut Environment::new())
+                .evaluate(&mut Environment::new(None))
                 .unwrap(),
             TokenType::String("foobar".to_string())
         );

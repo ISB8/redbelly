@@ -1,7 +1,12 @@
-let hello = "hello";
-let world = "world";
-print hello + " " + world;
+let a = "Global";
 
-let hello = "foo";
-
-print hello;
+{
+    {
+        {
+            {
+                a = "modified from local";
+            }
+        }
+    }
+}
+print a;

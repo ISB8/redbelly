@@ -144,6 +144,9 @@ impl Parser {
         if self.conditional_consume(vec![TokenType::Print]) {
             return self.print_statement();
         }
+        if self.conditional_consume(vec![TokenType::LeftBrace]) {
+            return self.block_statement();
+        }
 
         self.expression_statement()
     }
@@ -153,7 +156,10 @@ impl Parser {
         if self.conditional_consume(vec![TokenType::Semicolon]) {
             Ok(Rc::from(ExpressionStatement::new(expr)))
         } else {
-            Err(ParseError::new("Expected ; after expression", self.peek()))
+            Err(ParseError::new(
+                "Expected ; after expression",
+                self.consume(),
+            ))
         }
     }
 
@@ -162,7 +168,19 @@ impl Parser {
         if self.conditional_consume(vec![TokenType::Semicolon]) {
             Ok(Rc::from(PrintStatement::new(expr)))
         } else {
-            Err(ParseError::new("Expected ; after value", self.peek()))
+            Err(ParseError::new("Expected ; after value", self.consume()))
+        }
+    }
+    fn block_statement(&mut self) -> Result<Rc<dyn Statement>, ParseError> {
+        let mut statements = vec![];
+
+        while !self.check(TokenType::RightBrace) && !self.is_at_end() {
+            statements.push(self.declaration()?);
+        }
+        if !self.conditional_consume(vec![TokenType::RightBrace]) {
+            Err(ParseError::new("Expect '}' after block", self.consume()))
+        } else {
+            Ok(Rc::from(BlockStatement::new(statements)))
         }
     }
 }
@@ -287,7 +305,7 @@ impl Parser {
             }
         }
 
-        Err(ParseError::new("Expect Expression", self.peek()))
+        Err(ParseError::new("Expect Expression", self.consume()))
     }
 }
 

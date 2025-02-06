@@ -8,7 +8,7 @@ use crate::lexer::{Token, TokenType};
 
 use environment::Environment;
 use expression::{
-    AssignmentExpression, Binary, Expression, Grouping, Literal, Unary, VariableExpression,
+    AssignmentExpression, Binary, Expression, Grouping, Literal, Logical, Unary, VariableExpression,
 };
 use statement::*;
 
@@ -147,7 +147,15 @@ impl Parser {
         if self.conditional_consume(vec![TokenType::LeftBrace]) {
             return self.block_statement();
         }
-
+        if self.conditional_consume(vec![TokenType::If]) {
+            return self.if_statement();
+        }
+        if self.conditional_consume(vec![TokenType::While]) {
+            return self.while_statement();
+        }
+        if self.conditional_consume(vec![TokenType::For]) {
+            return self.for_statement();
+        }
         self.expression_statement()
     }
 
@@ -171,6 +179,7 @@ impl Parser {
             Err(ParseError::new("Expected ; after value", self.consume()))
         }
     }
+
     fn block_statement(&mut self) -> Result<Rc<dyn Statement>, ParseError> {
         let mut statements = vec![];
 
@@ -182,6 +191,113 @@ impl Parser {
         } else {
             Ok(Rc::from(BlockStatement::new(statements)))
         }
+    }
+
+    fn if_statement(&mut self) -> Result<Rc<dyn Statement>, ParseError> {
+        if !self.conditional_consume(vec![TokenType::LeftParen]) {
+            return Err(ParseError::new("Expect '(' after if", self.consume()));
+        }
+        let expr = self.or()?;
+        if !self.conditional_consume(vec![TokenType::RightParen]) {
+            return Err(ParseError::new(
+                "Expect ')' after if condition",
+                self.consume(),
+            ));
+        }
+        let then_branch = self.statement()?;
+        let mut else_branch = None;
+
+        if self.conditional_consume(vec![TokenType::Else]) {
+            else_branch = Some(self.statement()?);
+        }
+
+        Ok(Rc::from(IfStatement::new(expr, then_branch, else_branch)))
+    }
+
+    fn while_statement(&mut self) -> Result<Rc<dyn Statement>, ParseError> {
+        if !self.conditional_consume(vec![TokenType::LeftParen]) {
+            return Err(ParseError::new("Expect '(' after while", self.consume()));
+        }
+        let condition = self.expression()?;
+        if !self.conditional_consume(vec![TokenType::RightParen]) {
+            return Err(ParseError::new(
+                "Expect ')' after condition",
+                self.consume(),
+            ));
+        }
+        let body = self.statement()?;
+
+        Ok(Rc::from(WhileStatement::new(condition, body)))
+    }
+
+    fn for_statement(&mut self) -> Result<Rc<dyn Statement>, ParseError> {
+        if !self.conditional_consume(vec![TokenType::LeftParen]) {
+            return Err(ParseError::new("Expect '(' after for", self.consume()));
+        }
+
+        // Initaliser
+        let opt_initaliser: Option<Rc<dyn Statement>>;
+
+        if self.conditional_consume(vec![TokenType::Semicolon]) {
+            opt_initaliser = None;
+        } else if self.conditional_consume(vec![TokenType::Let]) {
+            opt_initaliser = Some(self.var_declaration()?);
+        } else {
+            opt_initaliser = Some(self.expression_statement()?);
+        }
+
+        // Condition
+        let mut opt_condition = None;
+
+        if !self.check(TokenType::Semicolon) {
+            opt_condition = Some(self.expression()?);
+        }
+
+        if !self.conditional_consume(vec![TokenType::Semicolon]) {
+            return Err(ParseError::new(
+                "Expect ';' after loop condition",
+                self.consume(),
+            ));
+        }
+
+        // Increment
+        let mut increment = None;
+        if !self.check(TokenType::RightParen) {
+            increment = Some(self.expression()?);
+        }
+
+        if !self.conditional_consume(vec![TokenType::RightParen]) {
+            return Err(ParseError::new(
+                "Expect ')' after for clauses",
+                self.consume(),
+            ));
+        }
+
+        let mut body = self.statement()?;
+
+        // Desugaring
+        if let Some(increment) = increment {
+            body = Rc::from(BlockStatement::new(vec![
+                Rc::from(ExpressionStatement::new(increment)),
+                body,
+            ]))
+        }
+
+        let condition;
+
+        if let Some(expr) = opt_condition {
+            condition = expr;
+        } else {
+            condition = Rc::from(Literal::new(TokenType::True));
+        }
+
+        body = Rc::from(WhileStatement::new(condition, body));
+
+        if let Some(init) = opt_initaliser {
+            body = Rc::from(BlockStatement::new(vec![init, body]))
+        }
+
+        Ok(body)
     }
 }
 
@@ -306,6 +422,26 @@ impl Parser {
         }
 
         Err(ParseError::new("Expect Expression", self.consume()))
+    }
+
+    fn or(&mut self) -> Result<Rc<dyn Expression>, ParseError> {
+        let mut expr = self.and()?;
+        while self.conditional_consume(vec![TokenType::Or]) {
+            let operator = self.previous().clone();
+            let right = self.and()?;
+            expr = Rc::from(Logical::new(expr, operator, right));
+        }
+        Ok(expr)
+    }
+
+    fn and(&mut self) -> Result<Rc<dyn Expression>, ParseError> {
+        let mut expr = self.equality()?;
+        while self.conditional_consume(vec![TokenType::And]) {
+            let operator = self.previous().clone();
+            let right = self.equality()?;
+            expr = Rc::from(Logical::new(expr, operator, right));
+        }
+        Ok(expr)
     }
 }
 

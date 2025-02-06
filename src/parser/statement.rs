@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use crate::lexer::Token;
+use crate::lexer::{Token, TokenType};
 
 use super::{environment::Environment, expression::Expression, ParseError};
 
@@ -72,7 +72,7 @@ impl Statement for VariableStatement {
 }
 
 pub struct BlockStatement {
-    statements: Vec<Rc<dyn Statement>>,
+    pub(super) statements: Vec<Rc<dyn Statement>>,
 }
 
 impl BlockStatement {
@@ -94,6 +94,65 @@ impl Statement for BlockStatement {
             .expect("Never fails as inner_env always has enclosed val");
         environment.values = new_env.values;
         environment.enclosing = new_env.enclosing;
+
+        Ok(())
+    }
+}
+
+pub struct IfStatement {
+    condition: Rc<dyn Expression>,
+    then_branch: Rc<dyn Statement>,
+    else_branch: Option<Rc<dyn Statement>>,
+}
+
+impl IfStatement {
+    pub fn new(
+        condition: Rc<dyn Expression>,
+        then_branch: Rc<dyn Statement>,
+        else_branch: Option<Rc<dyn Statement>>,
+    ) -> Self {
+        Self {
+            condition,
+            then_branch,
+            else_branch,
+        }
+    }
+}
+
+impl Statement for IfStatement {
+    fn execute(&self, environment: &mut Environment) -> Result<(), ParseError> {
+        let result = self.condition.evaluate(environment)?;
+
+        match result {
+            TokenType::True => self.then_branch.execute(environment),
+            TokenType::False => {
+                if let Some(else_branch) = &self.else_branch {
+                    else_branch.execute(environment)?;
+                }
+                Ok(())
+            }
+            // FIXME hacky fix is hacky
+            _ => panic!("Hacky Fix for handling invalid if condition"),
+        }
+    }
+}
+
+pub struct WhileStatement {
+    condition: Rc<dyn Expression>,
+    body: Rc<dyn Statement>,
+}
+
+impl WhileStatement {
+    pub fn new(condition: Rc<dyn Expression>, body: Rc<dyn Statement>) -> Self {
+        Self { condition, body }
+    }
+}
+
+impl Statement for WhileStatement {
+    fn execute(&self, environment: &mut Environment) -> Result<(), ParseError> {
+        while self.condition.evaluate(environment)? == TokenType::True {
+            self.body.execute(environment)?;
+        }
 
         Ok(())
     }

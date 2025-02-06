@@ -45,9 +45,7 @@ impl Environment {
             Some(val) => Ok(val),
             None => {
                 if let Some(env) = &*self.enclosing {
-                    if let Some(val) = env.values.get(&name.lexeme) {
-                        return Ok(val);
-                    }
+                    return env.get(name);
                 }
                 Err(ParseError::new("Undefined variable", &name))
             }

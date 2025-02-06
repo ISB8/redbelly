@@ -281,6 +281,58 @@ impl Expression for AssignmentExpression {
     }
 }
 
+pub struct Logical {
+    left: Rc<dyn Expression>,
+    operator: Token,
+    right: Rc<dyn Expression>,
+}
+
+impl Logical {
+    pub fn new(left: Rc<dyn Expression>, operator: Token, right: Rc<dyn Expression>) -> Self {
+        Self {
+            left,
+            operator,
+            right,
+        }
+    }
+}
+
+impl Expression for Logical {
+    fn evaluate(&self, environment: &mut Environment) -> Result<TokenType, ParseError> {
+        let left = self.left.evaluate(environment)?;
+
+        // Handle non bool values
+        if left != TokenType::True && left != TokenType::False {
+            return Err(ParseError::new(
+                "Logical Operator used on non bool value",
+                &self.operator,
+            ));
+        }
+
+        if self.operator.token_type == TokenType::Or {
+            if left == TokenType::True {
+                return Ok(left);
+            }
+        } else if left == TokenType::False {
+            return Ok(left);
+        }
+
+        let right = self.right.evaluate(environment)?;
+
+        if right != TokenType::True && right != TokenType::False {
+            return Err(ParseError::new(
+                "Logical Operator used on non bool value",
+                &self.operator,
+            ));
+        }
+        Ok(right)
+    }
+
+    fn to_any(&self) -> &dyn Any {
+        self
+    }
+}
+
 fn try_cast_to_f64(token_type: &TokenType) -> Option<f64> {
     match token_type {
         TokenType::Number(num) => Some(*num),

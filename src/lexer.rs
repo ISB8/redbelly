@@ -198,7 +198,7 @@ impl Lexer {
             None => self.add_token(TokenType::Slash),
             Some(_) => {
                 // If returns none due to array out of bounds, uses null ascii value
-                while self.peek().unwrap_or(&'\n') != &'\n' {
+                while self.peek().unwrap_or(&'\0') != &'\0' {
                     let _ = self.consume();
                 }
                 Ok(())
@@ -206,13 +206,15 @@ impl Lexer {
         }
     }
 
-    // TODO: Support Escape Sequences
     fn handle_string(&mut self) -> Result<(), RedbellyError> {
         loop {
             let p = self.peek();
             match p {
+                Some('\\') => {
+                    self.consume();
+                }
                 Some('"') => {
-                    let _ = self.consume();
+                    self.consume();
                     break;
                 }
                 Some('\n') => self.line += 1,
@@ -222,11 +224,8 @@ impl Lexer {
             self.consume();
         }
         // Trims the Quotes
-        let val: String = self.source[self.start + 1..self.index - 1]
-            .iter()
-            .clone()
-            .collect();
-        self.add_token(TokenType::String(val))
+        let val: String = self.source[self.start + 1..self.index - 1].iter().collect();
+        self.add_token(TokenType::String(handle_unescape(val)))
     }
 
     // Consider supporting negative numbers as literals
@@ -282,6 +281,15 @@ impl Lexer {
             None => self.add_token(TokenType::Identifier),
         }
     }
+}
+
+fn handle_unescape(str: String) -> String {
+    str.replace("\\n", "\n")
+        .replace("\\\\", "\\")
+        .replace("\\\"", "\"")
+        .replace("\\t", "\t")
+        .replace("\\n", "\n")
+        .replace("\\'", "\'")
 }
 
 fn is_num(c: &char) -> bool {

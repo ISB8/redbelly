@@ -67,7 +67,7 @@ impl Expression for Unary {
 
         match self.operator.token_type {
             TokenType::Minus => {
-                if let Some(num) = try_cast_to_f64(&expr) {
+                if let Some(num) = expr.try_cast_to_f64() {
                     return Ok(RedbellyValue::Number(-num));
                 } else {
                     return Err(ParseError::new("\"-\" not used on number", &self.operator));
@@ -120,7 +120,7 @@ impl Expression for Binary {
             // Arithmetic Operators
             TokenType::Minus => {
                 if let (Some(left_num), Some(right_num)) =
-                    (try_cast_to_f64(&left), try_cast_to_f64(&right))
+                    (left.try_cast_to_f64(), right.try_cast_to_f64())
                 {
                     Ok(RedbellyValue::Number(left_num - right_num))
                 } else {
@@ -129,7 +129,7 @@ impl Expression for Binary {
             }
             TokenType::Slash => {
                 if let (Some(left_num), Some(right_num)) =
-                    (try_cast_to_f64(&left), try_cast_to_f64(&right))
+                    (left.try_cast_to_f64(), right.try_cast_to_f64())
                 {
                     Ok(RedbellyValue::Number(left_num / right_num))
                 } else {
@@ -138,7 +138,7 @@ impl Expression for Binary {
             }
             TokenType::Star => {
                 if let (Some(left_num), Some(right_num)) =
-                    (try_cast_to_f64(&left), try_cast_to_f64(&right))
+                    (left.try_cast_to_f64(), right.try_cast_to_f64())
                 {
                     Ok(RedbellyValue::Number(left_num * right_num))
                 } else {
@@ -147,11 +147,11 @@ impl Expression for Binary {
             }
             TokenType::Plus => {
                 if let (Some(left_str), Some(right_num)) =
-                    (try_cast_to_f64(&left), try_cast_to_f64(&right))
+                    (left.try_cast_to_f64(), right.try_cast_to_f64())
                 {
                     Ok(RedbellyValue::Number(left_str + right_num))
                 } else if let (Some(left_str), Some(right_str)) =
-                    (try_cast_to_string(&left), try_cast_to_string(&right))
+                    (left.try_cast_to_string(), right.try_cast_to_string())
                 {
                     return Ok(RedbellyValue::String(left_str + &right_str));
                 } else {
@@ -164,7 +164,7 @@ impl Expression for Binary {
             // Comparison Operators
             TokenType::Greater => {
                 if let (Some(left_num), Some(right_num)) =
-                    (try_cast_to_f64(&left), try_cast_to_f64(&right))
+                    (left.try_cast_to_f64(), right.try_cast_to_f64())
                 {
                     match left_num > right_num {
                         true => Ok(RedbellyValue::True),
@@ -179,7 +179,7 @@ impl Expression for Binary {
             }
             TokenType::GreaterEqual => {
                 if let (Some(left_num), Some(right_num)) =
-                    (try_cast_to_f64(&left), try_cast_to_f64(&right))
+                    (left.try_cast_to_f64(), right.try_cast_to_f64())
                 {
                     match left_num >= right_num {
                         true => Ok(RedbellyValue::True),
@@ -194,7 +194,7 @@ impl Expression for Binary {
             }
             TokenType::Less => {
                 if let (Some(left_num), Some(right_num)) =
-                    (try_cast_to_f64(&left), try_cast_to_f64(&right))
+                    (left.try_cast_to_f64(), right.try_cast_to_f64())
                 {
                     match left_num < right_num {
                         true => Ok(RedbellyValue::True),
@@ -209,7 +209,7 @@ impl Expression for Binary {
             }
             TokenType::LessEqual => {
                 if let (Some(left_num), Some(right_num)) =
-                    (try_cast_to_f64(&left), try_cast_to_f64(&right))
+                    (left.try_cast_to_f64(), right.try_cast_to_f64())
                 {
                     match left_num <= right_num {
                         true => Ok(RedbellyValue::True),
@@ -383,20 +383,6 @@ impl Expression for Logical {
 
     fn to_any(&self) -> &dyn Any {
         self
-    }
-}
-
-fn try_cast_to_f64(token_type: &RedbellyValue) -> Option<f64> {
-    match token_type {
-        &RedbellyValue::Number(num) => Some(num),
-        _ => None,
-    }
-}
-
-fn try_cast_to_string(value_type: &RedbellyValue) -> Option<String> {
-    match value_type {
-        RedbellyValue::String(str) => Some(str.clone()),
-        _ => None,
     }
 }
 

@@ -52,11 +52,8 @@ pub fn run_prompt() {
             Ok(_) => (),
             Err(error) => eprintln!("Error Reading Input: {}", error),
         };
-        if input == *"exit()\n" {
-            return;
-        } else {
-            run(input, &mut environment);
-        }
+
+        run(input, &mut environment);
     }
 }
 

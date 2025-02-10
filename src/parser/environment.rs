@@ -89,11 +89,23 @@ pub fn redbelly_globals() -> Environment {
             for arg in args {
                 print!("{}", arg);
             }
-            println!();
             RedbellyValue::Nil
         };
         globals.define(
             "print".to_owned(),
+            RedbellyValue::Callable(RedbellyCallable::new(1, call, || "<native fn>".to_owned())),
+        );
+    }
+    {
+        let call = |_environment: &mut Environment, args: Vec<RedbellyValue>| -> RedbellyValue {
+            for arg in args {
+                print!("{}", arg);
+            }
+            println!();
+            RedbellyValue::Nil
+        };
+        globals.define(
+            "println".to_owned(),
             RedbellyValue::Callable(RedbellyCallable::new(1, call, || "<native fn>".to_owned())),
         );
     }
@@ -108,6 +120,15 @@ pub fn redbelly_globals() -> Environment {
         globals.define(
             "input".to_owned(),
             RedbellyValue::Callable(RedbellyCallable::new(0, call, || "<native fn>".to_owned())),
+        );
+    }
+    {
+        let call = |_environment: &mut Environment, args: Vec<RedbellyValue>| -> RedbellyValue {
+            std::process::exit(args.first().unwrap().try_cast_to_f64().unwrap_or(1.) as i32)
+        };
+        globals.define(
+            "exit".to_owned(),
+            RedbellyValue::Callable(RedbellyCallable::new(1, call, || "<native fn>".to_owned())),
         );
     }
     globals

@@ -12,6 +12,22 @@ pub enum RedbellyValue {
     Callable(RedbellyCallable),
 }
 
+impl RedbellyValue {
+    pub fn try_cast_to_f64(&self) -> Option<f64> {
+        match self {
+            &RedbellyValue::Number(num) => Some(num),
+            _ => None,
+        }
+    }
+
+    pub fn try_cast_to_string(&self) -> Option<String> {
+        match self {
+            RedbellyValue::String(str) => Some(str.clone()),
+            _ => None,
+        }
+    }
+}
+
 impl Display for RedbellyValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {

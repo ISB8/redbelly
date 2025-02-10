@@ -20,7 +20,7 @@ pub enum TokenType {
 
   // Keywords.
   And, Class, Else, False, Func, For, If, Nil, Or,
-  Print, Return, Super, This, True, Let, While,
+  Return, Super, This, True, Let, While,
 
   Eof
 }
@@ -310,7 +310,6 @@ fn get_keywords() -> HashMap<String, TokenType> {
     map.insert("if".to_string(), TokenType::If);
     map.insert("nil".to_string(), TokenType::Nil);
     map.insert("or".to_string(), TokenType::Or);
-    map.insert("print".to_string(), TokenType::Print);
     map.insert("return".to_string(), TokenType::Return);
     map.insert("super".to_string(), TokenType::Super);
     map.insert("this".to_string(), TokenType::This);

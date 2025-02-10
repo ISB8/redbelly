@@ -1,4 +1,8 @@
-use std::{collections::HashMap, time::UNIX_EPOCH};
+use std::{
+    collections::HashMap,
+    io::{stdin, stdout, Write},
+    time::UNIX_EPOCH,
+};
 
 use crate::{
     lexer::Token,
@@ -66,19 +70,46 @@ impl Environment {
 
 pub fn redbelly_globals() -> Environment {
     let mut globals = Environment::new(None);
-    let call = |_environment: &mut Environment, _args: Vec<RedbellyValue>| -> RedbellyValue {
-        RedbellyValue::Number(
-            std::time::SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .expect("Error Acquiring system time")
-                .as_secs() as f64,
-        )
-    };
-    globals.define(
-        "clock".to_owned(),
-        RedbellyValue::Callable(RedbellyCallable::new(0, call, || "<native fn>".to_owned())),
-    );
-
+    {
+        let call = |_environment: &mut Environment, _args: Vec<RedbellyValue>| -> RedbellyValue {
+            RedbellyValue::Number(
+                std::time::SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .expect("Error Acquiring system time")
+                    .as_secs() as f64,
+            )
+        };
+        globals.define(
+            "clock".to_owned(),
+            RedbellyValue::Callable(RedbellyCallable::new(0, call, || "<native fn>".to_owned())),
+        );
+    }
+    {
+        let call = |_environment: &mut Environment, args: Vec<RedbellyValue>| -> RedbellyValue {
+            for arg in args {
+                print!("{}", arg);
+            }
+            println!();
+            RedbellyValue::Nil
+        };
+        globals.define(
+            "print".to_owned(),
+            RedbellyValue::Callable(RedbellyCallable::new(1, call, || "<native fn>".to_owned())),
+        );
+    }
+    {
+        let call = |_environment: &mut Environment, _args: Vec<RedbellyValue>| -> RedbellyValue {
+            let mut input = String::new();
+            let _ = stdout().flush();
+            let _ = stdin().read_line(&mut input);
+            let input = input.trim_end().to_owned();
+            RedbellyValue::String(input)
+        };
+        globals.define(
+            "input".to_owned(),
+            RedbellyValue::Callable(RedbellyCallable::new(0, call, || "<native fn>".to_owned())),
+        );
+    }
     globals
 }
 

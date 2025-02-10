@@ -1,0 +1,15 @@
+let loop = true;
+
+while(loop) {
+    print("Is rust the best language? [Y/N]:");
+    let a = input();
+    if (a == "Y" or a == "y") {
+        print("Correct");
+        loop = false;
+    } else if (a == "N" or a == "n") {
+        print("Incorrect");
+        loop = false;
+    } else {
+        print("Invalid Input try again");
+    }
+}

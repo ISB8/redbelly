@@ -74,9 +74,7 @@ impl Parser {
             }
             use crate::lexer::TokenType as t;
             match self.peek().token_type {
-                t::Class | t::Func | t::Let | t::For | t::If | t::While | t::Print | t::Return => {
-                    return
-                }
+                t::Class | t::Func | t::Let | t::For | t::If | t::While | t::Return => return,
                 _ => (),
             }
 
@@ -145,9 +143,6 @@ impl Parser {
     }
 
     fn statement(&mut self) -> Result<Rc<dyn Statement>, ParseError> {
-        if self.conditional_consume(vec![TokenType::Print]) {
-            return self.print_statement();
-        }
         if self.conditional_consume(vec![TokenType::LeftBrace]) {
             return self.block_statement();
         }
@@ -172,15 +167,6 @@ impl Parser {
                 "Expected ; after expression",
                 self.consume(),
             ))
-        }
-    }
-
-    fn print_statement(&mut self) -> Result<Rc<dyn Statement>, ParseError> {
-        let expr = self.expression()?;
-        if self.conditional_consume(vec![TokenType::Semicolon]) {
-            Ok(Rc::from(PrintStatement::new(expr)))
-        } else {
-            Err(ParseError::new("Expected ; after value", self.consume()))
         }
     }
 

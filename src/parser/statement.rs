@@ -8,24 +8,6 @@ pub trait Statement {
     fn execute(&self, environment: &mut Environment) -> Result<(), ParseError>;
 }
 
-pub struct PrintStatement {
-    expr: Rc<dyn Expression>,
-}
-
-impl PrintStatement {
-    pub fn new(expr: Rc<dyn Expression>) -> Self {
-        Self { expr }
-    }
-}
-
-impl Statement for PrintStatement {
-    fn execute(&self, environment: &mut Environment) -> Result<(), ParseError> {
-        let val = self.expr.evaluate(environment)?;
-        println!("{}", val);
-        Ok(())
-    }
-}
-
 pub struct ExpressionStatement {
     expr: Rc<dyn Expression>,
 }

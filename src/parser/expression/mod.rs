@@ -1,26 +1,28 @@
 use std::{any::Any, rc::Rc};
 
-use crate::lexer::{Token, TokenType};
+use crate::{
+    lexer::{Token, TokenType},
+    redbelly_value::{try_cast_to_redbelly_callable, RedbellyValue},
+};
 
 use super::{environment::Environment, ParseError};
-
 pub(crate) trait Expression {
-    fn evaluate(&self, environment: &mut Environment) -> Result<TokenType, ParseError>;
+    fn evaluate(&self, environment: &mut Environment) -> Result<RedbellyValue, ParseError>;
     fn to_any(&self) -> &dyn Any;
 }
 
 pub struct Literal {
-    value: TokenType,
+    value: RedbellyValue,
 }
 
 impl Literal {
-    pub fn new(value: TokenType) -> Self {
+    pub fn new(value: RedbellyValue) -> Self {
         Self { value }
     }
 }
 
 impl Expression for Literal {
-    fn evaluate(&self, environment: &mut Environment) -> Result<TokenType, ParseError> {
+    fn evaluate(&self, environment: &mut Environment) -> Result<RedbellyValue, ParseError> {
         let _ = environment;
         Ok(self.value.clone())
     }
@@ -40,7 +42,7 @@ impl Grouping {
 }
 
 impl Expression for Grouping {
-    fn evaluate(&self, environment: &mut Environment) -> Result<TokenType, ParseError> {
+    fn evaluate(&self, environment: &mut Environment) -> Result<RedbellyValue, ParseError> {
         self.expr.evaluate(environment)
     }
     fn to_any(&self) -> &dyn Any {
@@ -60,13 +62,13 @@ impl Unary {
 }
 
 impl Expression for Unary {
-    fn evaluate(&self, environment: &mut Environment) -> Result<TokenType, ParseError> {
+    fn evaluate(&self, environment: &mut Environment) -> Result<RedbellyValue, ParseError> {
         let expr = self.right.evaluate(environment)?;
 
         match self.operator.token_type {
             TokenType::Minus => {
                 if let Some(num) = try_cast_to_f64(&expr) {
-                    return Ok(TokenType::Number(-num));
+                    return Ok(RedbellyValue::Number(-num));
                 } else {
                     return Err(ParseError::new("\"-\" not used on number", &self.operator));
                 }
@@ -74,8 +76,8 @@ impl Expression for Unary {
             // No truthy values, might cause problems later
             // Returns the reverse of the expr
             TokenType::Bang => match expr {
-                TokenType::False => return Ok(TokenType::True),
-                TokenType::True => return Ok(TokenType::False),
+                RedbellyValue::False => return Ok(RedbellyValue::True),
+                RedbellyValue::True => return Ok(RedbellyValue::False),
                 _ => {
                     return Err(ParseError::new(
                         "\"!\" used on non bool value",
@@ -110,7 +112,7 @@ impl Binary {
 }
 
 impl Expression for Binary {
-    fn evaluate(&self, environment: &mut Environment) -> Result<TokenType, ParseError> {
+    fn evaluate(&self, environment: &mut Environment) -> Result<RedbellyValue, ParseError> {
         let left = self.left.evaluate(environment)?;
         let right = self.right.evaluate(environment)?;
 
@@ -120,7 +122,7 @@ impl Expression for Binary {
                 if let (Some(left_num), Some(right_num)) =
                     (try_cast_to_f64(&left), try_cast_to_f64(&right))
                 {
-                    Ok(TokenType::Number(left_num - right_num))
+                    Ok(RedbellyValue::Number(left_num - right_num))
                 } else {
                     Err(ParseError::new("\"-\" not used on number", &self.operator))
                 }
@@ -129,7 +131,7 @@ impl Expression for Binary {
                 if let (Some(left_num), Some(right_num)) =
                     (try_cast_to_f64(&left), try_cast_to_f64(&right))
                 {
-                    Ok(TokenType::Number(left_num / right_num))
+                    Ok(RedbellyValue::Number(left_num / right_num))
                 } else {
                     Err(ParseError::new("\"/\" not used on number", &self.operator))
                 }
@@ -138,7 +140,7 @@ impl Expression for Binary {
                 if let (Some(left_num), Some(right_num)) =
                     (try_cast_to_f64(&left), try_cast_to_f64(&right))
                 {
-                    Ok(TokenType::Number(left_num * right_num))
+                    Ok(RedbellyValue::Number(left_num * right_num))
                 } else {
                     Err(ParseError::new("\"*\" not used on number", &self.operator))
                 }
@@ -147,11 +149,11 @@ impl Expression for Binary {
                 if let (Some(left_str), Some(right_num)) =
                     (try_cast_to_f64(&left), try_cast_to_f64(&right))
                 {
-                    Ok(TokenType::Number(left_str + right_num))
+                    Ok(RedbellyValue::Number(left_str + right_num))
                 } else if let (Some(left_str), Some(right_str)) =
                     (try_cast_to_string(&left), try_cast_to_string(&right))
                 {
-                    return Ok(TokenType::String(left_str + &right_str));
+                    return Ok(RedbellyValue::String(left_str + &right_str));
                 } else {
                     return Err(ParseError::new(
                         "\"+\" not used on number or string",
@@ -165,8 +167,8 @@ impl Expression for Binary {
                     (try_cast_to_f64(&left), try_cast_to_f64(&right))
                 {
                     match left_num > right_num {
-                        true => Ok(TokenType::True),
-                        false => Ok(TokenType::False),
+                        true => Ok(RedbellyValue::True),
+                        false => Ok(RedbellyValue::False),
                     }
                 } else {
                     Err(ParseError::new(
@@ -180,8 +182,8 @@ impl Expression for Binary {
                     (try_cast_to_f64(&left), try_cast_to_f64(&right))
                 {
                     match left_num >= right_num {
-                        true => Ok(TokenType::True),
-                        false => Ok(TokenType::False),
+                        true => Ok(RedbellyValue::True),
+                        false => Ok(RedbellyValue::False),
                     }
                 } else {
                     Err(ParseError::new(
@@ -195,8 +197,8 @@ impl Expression for Binary {
                     (try_cast_to_f64(&left), try_cast_to_f64(&right))
                 {
                     match left_num < right_num {
-                        true => Ok(TokenType::True),
-                        false => Ok(TokenType::False),
+                        true => Ok(RedbellyValue::True),
+                        false => Ok(RedbellyValue::False),
                     }
                 } else {
                     Err(ParseError::new(
@@ -210,8 +212,8 @@ impl Expression for Binary {
                     (try_cast_to_f64(&left), try_cast_to_f64(&right))
                 {
                     match left_num <= right_num {
-                        true => Ok(TokenType::True),
-                        false => Ok(TokenType::False),
+                        true => Ok(RedbellyValue::True),
+                        false => Ok(RedbellyValue::False),
                     }
                 } else {
                     Err(ParseError::new(
@@ -222,12 +224,12 @@ impl Expression for Binary {
             }
             // Equality Operators
             TokenType::BangEqual => match right != left {
-                true => Ok(TokenType::True),
-                false => Ok(TokenType::False),
+                true => Ok(RedbellyValue::True),
+                false => Ok(RedbellyValue::False),
             },
             TokenType::EqualEqual => match right == left {
-                true => Ok(TokenType::True),
-                false => Ok(TokenType::False),
+                true => Ok(RedbellyValue::True),
+                false => Ok(RedbellyValue::False),
             },
             _ => Err(ParseError::new("Unknown Operator", &self.operator)),
         }
@@ -237,6 +239,57 @@ impl Expression for Binary {
     }
 }
 
+pub struct CallExpression {
+    callee: Rc<dyn Expression>,
+    parentheses: Token,
+    arguments: Vec<Rc<dyn Expression>>,
+}
+
+impl CallExpression {
+    pub fn new(
+        callee: Rc<dyn Expression>,
+        parentheses: Token,
+        arguments: Vec<Rc<dyn Expression>>,
+    ) -> Self {
+        Self {
+            callee,
+            parentheses,
+            arguments,
+        }
+    }
+}
+
+impl Expression for CallExpression {
+    fn evaluate(&self, environment: &mut Environment) -> Result<RedbellyValue, ParseError> {
+        let mut args = vec![];
+        for arg in &self.arguments {
+            args.push(arg.evaluate(environment)?);
+        }
+
+        if let Some(function) = try_cast_to_redbelly_callable(&self.callee.evaluate(environment)?) {
+            if args.len() != function.arity() {
+                return Err(ParseError::new(
+                    &format!(
+                        "Expected {} arguments but got {}",
+                        function.arity(),
+                        self.arguments.len()
+                    ),
+                    &self.parentheses,
+                ));
+            }
+            Ok(function.call(environment, args))
+        } else {
+            Err(ParseError::new(
+                "Can only call functions",
+                &self.parentheses,
+            ))
+        }
+    }
+
+    fn to_any(&self) -> &dyn Any {
+        self
+    }
+}
 pub struct VariableExpression {
     pub name: Token,
 }
@@ -248,7 +301,7 @@ impl VariableExpression {
 }
 
 impl Expression for VariableExpression {
-    fn evaluate(&self, environment: &mut Environment) -> Result<TokenType, ParseError> {
+    fn evaluate(&self, environment: &mut Environment) -> Result<RedbellyValue, ParseError> {
         Ok(environment.get(self.name.clone())?.clone())
     }
     fn to_any(&self) -> &dyn Any {
@@ -268,7 +321,7 @@ impl AssignmentExpression {
 }
 
 impl Expression for AssignmentExpression {
-    fn evaluate(&self, environment: &mut Environment) -> Result<TokenType, ParseError> {
+    fn evaluate(&self, environment: &mut Environment) -> Result<RedbellyValue, ParseError> {
         let value = self.value.evaluate(environment)?;
         match environment.assign(self.name.clone(), value.clone()) {
             Some(error) => Err(error),
@@ -298,11 +351,11 @@ impl Logical {
 }
 
 impl Expression for Logical {
-    fn evaluate(&self, environment: &mut Environment) -> Result<TokenType, ParseError> {
+    fn evaluate(&self, environment: &mut Environment) -> Result<RedbellyValue, ParseError> {
         let left = self.left.evaluate(environment)?;
 
         // Handle non bool values
-        if left != TokenType::True && left != TokenType::False {
+        if left != RedbellyValue::True && left != RedbellyValue::False {
             return Err(ParseError::new(
                 "Logical Operator used on non bool value",
                 &self.operator,
@@ -310,16 +363,16 @@ impl Expression for Logical {
         }
 
         if self.operator.token_type == TokenType::Or {
-            if left == TokenType::True {
+            if left == RedbellyValue::True {
                 return Ok(left);
             }
-        } else if left == TokenType::False {
+        } else if left == RedbellyValue::False {
             return Ok(left);
         }
 
         let right = self.right.evaluate(environment)?;
 
-        if right != TokenType::True && right != TokenType::False {
+        if right != RedbellyValue::True && right != RedbellyValue::False {
             return Err(ParseError::new(
                 "Logical Operator used on non bool value",
                 &self.operator,
@@ -333,16 +386,16 @@ impl Expression for Logical {
     }
 }
 
-fn try_cast_to_f64(token_type: &TokenType) -> Option<f64> {
+fn try_cast_to_f64(token_type: &RedbellyValue) -> Option<f64> {
     match token_type {
-        TokenType::Number(num) => Some(*num),
+        &RedbellyValue::Number(num) => Some(num),
         _ => None,
     }
 }
 
-fn try_cast_to_string(token_type: &TokenType) -> Option<String> {
-    match token_type {
-        TokenType::String(str) => Some(str.clone()),
+fn try_cast_to_string(value_type: &RedbellyValue) -> Option<String> {
+    match value_type {
+        RedbellyValue::String(str) => Some(str.clone()),
         _ => None,
     }
 }
@@ -352,8 +405,9 @@ mod tests {
     use std::rc::Rc;
 
     use crate::{
-        lexer::{Lexer, Token, TokenType},
+        lexer::{Lexer, Token},
         parser::{environment::Environment, expression::Expression, ParseError, Parser},
+        redbelly_value::RedbellyValue,
     };
 
     impl Parser {
@@ -380,7 +434,7 @@ mod tests {
                 .unwrap()
                 .evaluate(&mut Environment::new(None))
                 .unwrap(),
-            TokenType::Number(-0.5517241379310347)
+            RedbellyValue::Number(-0.5517241379310347)
         );
     }
 
@@ -393,7 +447,7 @@ mod tests {
                 .unwrap()
                 .evaluate(&mut Environment::new(None))
                 .unwrap(),
-            TokenType::String("foobar".to_string())
+            RedbellyValue::String("foobar".to_string())
         );
     }
 }

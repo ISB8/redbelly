@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
-use crate::lexer::{Token, TokenType};
+use crate::{lexer::Token, redbelly_value::RedbellyValue};
 
 use super::ParseError;
 
 #[derive(Clone)]
 pub struct Environment {
-    pub(crate) values: HashMap<String, TokenType>,
+    pub(crate) values: HashMap<String, RedbellyValue>,
     pub(crate) enclosing: Box<Option<Environment>>,
 }
 
@@ -17,11 +17,11 @@ impl Environment {
             enclosing: Box::new(enclosing),
         }
     }
-    pub fn define(&mut self, name: String, value: TokenType) {
+    pub fn define(&mut self, name: String, value: RedbellyValue) {
         self.values.insert(name, value);
     }
 
-    pub fn assign(&mut self, name: Token, value: TokenType) -> Option<ParseError> {
+    pub fn assign(&mut self, name: Token, value: RedbellyValue) -> Option<ParseError> {
         use std::collections::hash_map::Entry;
         match self.values.entry(name.lexeme.clone()) {
             Entry::Occupied(mut occupied_entry) => {
@@ -40,7 +40,7 @@ impl Environment {
         ))
     }
 
-    pub fn get(&self, name: Token) -> Result<&TokenType, ParseError> {
+    pub fn get(&self, name: Token) -> Result<&RedbellyValue, ParseError> {
         match self.values.get(&name.lexeme) {
             Some(val) => Ok(val),
             None => {
@@ -63,47 +63,47 @@ impl Environment {
 
 #[cfg(test)]
 mod tests {
-    use crate::lexer::{Token, TokenType};
+    use crate::{lexer::Token, lexer::TokenType, redbelly_value::RedbellyValue};
 
     use super::Environment;
 
     #[test]
     fn test_enclosing_environments() {
         let mut enclosing = Environment::new(None);
-        enclosing.define("test".to_owned(), TokenType::Number(3.));
+        enclosing.define("test".to_owned(), RedbellyValue::Number(3.));
         let environment = enclosing.enclosed();
 
         let result = environment.get(Token::new(TokenType::Identifier, "test".to_owned(), 1));
 
-        assert!(result.unwrap() == &TokenType::Number(3.));
+        assert!(result.unwrap() == &RedbellyValue::Number(3.));
     }
 
     #[test]
     fn test_shadowing() {
         let mut enclosing = Environment::new(None);
-        enclosing.define("test".to_owned(), TokenType::Number(3.));
+        enclosing.define("test".to_owned(), RedbellyValue::Number(3.));
         let mut environment = enclosing.enclosed();
 
-        environment.define("test".to_owned(), TokenType::Number(4.));
+        environment.define("test".to_owned(), RedbellyValue::Number(4.));
 
         let result = environment.get(Token::new(TokenType::Identifier, "test".to_owned(), 1));
 
-        assert!(result.unwrap() == &TokenType::Number(4.));
+        assert!(result.unwrap() == &RedbellyValue::Number(4.));
     }
     #[test]
     fn test_nested_reassignment() {
         let mut enclosing = Environment::new(None);
-        enclosing.define("test".to_owned(), TokenType::Number(3.));
+        enclosing.define("test".to_owned(), RedbellyValue::Number(3.));
         let mut environment = enclosing.enclosed();
 
         environment.assign(
             Token::new(TokenType::Identifier, "test".to_owned(), 1),
-            TokenType::Number(4.),
+            RedbellyValue::Number(4.),
         );
 
         let new_env = environment.release_enclosing().unwrap();
         let result = new_env.get(Token::new(TokenType::Identifier, "test".to_owned(), 1));
 
-        assert!(result.unwrap() == &TokenType::Number(4.));
+        assert!(result.unwrap() == &RedbellyValue::Number(4.));
     }
 }

@@ -4,11 +4,15 @@ use std::{
     vec,
 };
 
-use crate::lexer::{Token, TokenType};
+use crate::{
+    lexer::{Token, TokenType},
+    redbelly_value::RedbellyValue,
+};
 
 use environment::Environment;
 use expression::{
-    AssignmentExpression, Binary, Expression, Grouping, Literal, Logical, Unary, VariableExpression,
+    AssignmentExpression, Binary, CallExpression, Expression, Grouping, Literal, Logical, Unary,
+    VariableExpression,
 };
 use statement::*;
 
@@ -288,7 +292,7 @@ impl Parser {
         if let Some(expr) = opt_condition {
             condition = expr;
         } else {
-            condition = Rc::from(Literal::new(TokenType::True));
+            condition = Rc::from(Literal::new(RedbellyValue::True));
         }
 
         body = Rc::from(WhileStatement::new(condition, body));
@@ -385,29 +389,75 @@ impl Parser {
             return Ok(Rc::from(Unary::new(operator, right)));
         }
 
-        self.primary()
+        self.call()
+    }
+
+    fn call(&mut self) -> Result<Rc<dyn Expression>, ParseError> {
+        let mut expr = self.primary()?;
+
+        loop {
+            if self.conditional_consume(vec![TokenType::LeftParen]) {
+                expr = self.finish_call(expr)?
+            } else {
+                break;
+            }
+        }
+
+        Ok(expr)
+    }
+
+    fn finish_call(
+        &mut self,
+        callee: Rc<dyn Expression>,
+    ) -> Result<Rc<dyn Expression>, ParseError> {
+        let mut arguments = vec![];
+        if !self.check(TokenType::RightParen) {
+            loop {
+                arguments.push(self.expression()?);
+                if !self.conditional_consume(vec![TokenType::Comma]) {
+                    break;
+                }
+            }
+        }
+
+        if arguments.len() >= 255 {
+            return Err(ParseError::new(
+                "A function cannot have more then 255 arguments",
+                self.peek(),
+            ));
+        }
+
+        let token = self.consume().clone();
+        if token.token_type == TokenType::RightParen {
+            Ok(Rc::from(CallExpression::new(callee, token, arguments)))
+        } else {
+            Err(ParseError::new(
+                "Expected ')' after arguments",
+                self.consume(),
+            ))
+        }
     }
 
     fn primary(&mut self) -> Result<Rc<dyn Expression>, ParseError> {
         if self.conditional_consume(vec![TokenType::False]) {
-            return Ok(Rc::from(Literal::new(TokenType::False)));
+            return Ok(Rc::from(Literal::new(RedbellyValue::False)));
         }
         if self.conditional_consume(vec![TokenType::True]) {
-            return Ok(Rc::from(Literal::new(TokenType::True)));
+            return Ok(Rc::from(Literal::new(RedbellyValue::True)));
         }
         if self.conditional_consume(vec![TokenType::Nil]) {
-            return Ok(Rc::from(Literal::new(TokenType::Nil)));
+            return Ok(Rc::from(Literal::new(RedbellyValue::Nil)));
         }
 
         // For matching tokens with inner values
         match self.peek().token_type.clone() {
             TokenType::String(s) => {
                 self.consume();
-                return Ok(Rc::from(Literal::new(TokenType::String(s))));
+                return Ok(Rc::from(Literal::new(RedbellyValue::String(s))));
             }
             TokenType::Number(n) => {
                 self.consume();
-                return Ok(Rc::from(Literal::new(TokenType::Number(n))));
+                return Ok(Rc::from(Literal::new(RedbellyValue::Number(n))));
             }
             _ => (),
         }

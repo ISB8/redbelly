@@ -253,13 +253,13 @@ impl Lexer {
 
     /// Consumes all characters that are numbers until it finds a character that is not a number.
     fn consume_all_nums(&mut self) {
-        while let Some(c) = self.peek()  {
+        while let Some(c) = self.peek() {
             if is_num(c) {
                 self.consume();
             } else {
                 break;
             }
-        } 
+        }
     }
 
     fn handle_identifiers(&mut self) -> Result<(), RedbellyError> {

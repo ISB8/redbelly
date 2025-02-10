@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use crate::lexer::{Token, TokenType};
+use crate::{lexer::Token, redbelly_value::RedbellyValue};
 
 use super::{environment::Environment, expression::Expression, ParseError};
 
@@ -64,7 +64,7 @@ impl Statement for VariableStatement {
                 Ok(())
             }
             None => {
-                environment.define(self.name.lexeme.clone(), crate::lexer::TokenType::Nil);
+                environment.define(self.name.lexeme.clone(), RedbellyValue::Nil);
                 Ok(())
             }
         }
@@ -124,8 +124,8 @@ impl Statement for IfStatement {
         let result = self.condition.evaluate(environment)?;
 
         match result {
-            TokenType::True => self.then_branch.execute(environment),
-            TokenType::False => {
+            RedbellyValue::True => self.then_branch.execute(environment),
+            RedbellyValue::False => {
                 if let Some(else_branch) = &self.else_branch {
                     else_branch.execute(environment)?;
                 }
@@ -150,7 +150,7 @@ impl WhileStatement {
 
 impl Statement for WhileStatement {
     fn execute(&self, environment: &mut Environment) -> Result<(), ParseError> {
-        while self.condition.evaluate(environment)? == TokenType::True {
+        while self.condition.evaluate(environment)? == RedbellyValue::True {
             self.body.execute(environment)?;
         }
 

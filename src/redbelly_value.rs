@@ -1,15 +1,15 @@
-use std::{fmt::Display, rc::Rc};
+use std::fmt::Display;
 
 use crate::parser::environment::Environment;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq, Debug)]
 pub enum RedbellyValue {
     Number(f64),
     String(String),
-    Identifier(IdentifierType),
     True,
     False,
     Nil,
+    Callable(RedbellyCallable),
 }
 
 impl Display for RedbellyValue {
@@ -17,59 +17,44 @@ impl Display for RedbellyValue {
         match self {
             RedbellyValue::Number(num) => write!(f, "{}", num),
             RedbellyValue::String(str) => write!(f, "{}", str),
-            RedbellyValue::Identifier(identifier_type) => match identifier_type {
-                IdentifierType::Variable => todo!(),
-                IdentifierType::Callable => todo!(),
-            },
             RedbellyValue::True => write!(f, "true"),
             RedbellyValue::False => write!(f, "false"),
             RedbellyValue::Nil => write!(f, "nil"),
+            RedbellyValue::Callable(func) => write!(f, "{}", func),
         }
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
-pub enum IdentifierType {
-    Variable,
-    Callable,
-}
-
-pub(crate) trait RedbellyCallable {
-    fn call(&self, environment: &mut Environment, args: Vec<RedbellyValue>) -> RedbellyValue;
-    fn arity(&self) -> usize;
-    fn arguments(&self) -> Vec<RedbellyValue>;
-    fn print(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result;
-}
-
-pub struct RedbellyFunction {
+#[derive(Clone, PartialEq, Debug)]
+pub struct RedbellyCallable {
     arity: usize,
+    call: fn(environment: &mut Environment, args: Vec<RedbellyValue>) -> RedbellyValue,
+    to_string: fn() -> String,
 }
 
-impl RedbellyCallable for RedbellyFunction {
-    fn call(&self, environment: &mut Environment, args: Vec<RedbellyValue>) -> RedbellyValue {
-        todo!()
+impl RedbellyCallable {
+    pub fn new(
+        arity: usize,
+        call: fn(environment: &mut Environment, args: Vec<RedbellyValue>) -> RedbellyValue,
+        to_string: fn() -> String,
+    ) -> Self {
+        Self {
+            arity,
+            call,
+            to_string,
+        }
+    }
+    pub fn arity(&self) -> usize {
+        self.arity
     }
 
-    fn arity(&self) -> usize {
-        todo!()
-    }
-
-    fn arguments(&self) -> Vec<RedbellyValue> {
-        todo!()
-    }
-    fn print(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "function")
+    pub fn call(&self, environment: &mut Environment, args: Vec<RedbellyValue>) -> RedbellyValue {
+        (self.call)(environment, args)
     }
 }
 
-impl Display for RedbellyFunction {
+impl Display for RedbellyCallable {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.print(f)
+        write!(f, "{}", (self.to_string)())
     }
-}
-
-pub(crate) fn try_cast_to_redbelly_callable(
-    _rb_val: &RedbellyValue,
-) -> Option<Rc<dyn RedbellyCallable>> {
-    todo!();
 }

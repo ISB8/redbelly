@@ -1,6 +1,9 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, time::UNIX_EPOCH};
 
-use crate::{lexer::Token, redbelly_value::RedbellyValue};
+use crate::{
+    lexer::Token,
+    redbelly_value::{RedbellyCallable, RedbellyValue},
+};
 
 use super::ParseError;
 
@@ -59,6 +62,24 @@ impl Environment {
     pub fn enclosed(self) -> Environment {
         Environment::new(Some(self))
     }
+}
+
+pub fn redbelly_globals() -> Environment {
+    let mut globals = Environment::new(None);
+    let call = |_environment: &mut Environment, _args: Vec<RedbellyValue>| -> RedbellyValue {
+        RedbellyValue::Number(
+            std::time::SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("Error Acquiring system time")
+                .as_secs() as f64,
+        )
+    };
+    globals.define(
+        "clock".to_owned(),
+        RedbellyValue::Callable(RedbellyCallable::new(0, call, || "<native fn>".to_owned())),
+    );
+
+    globals
 }
 
 #[cfg(test)]

@@ -1,5 +1,8 @@
 use lexer::Lexer;
-use parser::{environment::Environment, interpret, Parser};
+use parser::{
+    environment::{redbelly_globals, Environment},
+    interpret, Parser,
+};
 use std::{
     fmt::{self, Display},
     fs::File,
@@ -35,12 +38,12 @@ pub fn run_file(file_path: &String) {
         .expect("Invalid File Path")
         .read_to_string(&mut contents)
         .expect("Invalid File Contents");
-    run(contents, &mut Environment::new(None));
+    run(contents, &mut Environment::new(Some(redbelly_globals())));
     // Proper exit codes one day
 }
 
 pub fn run_prompt() {
-    let mut environment = Environment::new(None);
+    let mut environment = Environment::new(Some(redbelly_globals()));
     loop {
         print!(">");
         let _ = stdout().flush();

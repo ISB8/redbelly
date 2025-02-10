@@ -2,7 +2,7 @@ use std::{any::Any, rc::Rc};
 
 use crate::{
     lexer::{Token, TokenType},
-    redbelly_value::{try_cast_to_redbelly_callable, RedbellyValue},
+    redbelly_value::RedbellyValue,
 };
 
 use super::{environment::Environment, ParseError};
@@ -266,18 +266,18 @@ impl Expression for CallExpression {
             args.push(arg.evaluate(environment)?);
         }
 
-        if let Some(function) = try_cast_to_redbelly_callable(&self.callee.evaluate(environment)?) {
-            if args.len() != function.arity() {
+        if let RedbellyValue::Callable(func) = self.callee.evaluate(environment)? {
+            if args.len() != func.arity() {
                 return Err(ParseError::new(
                     &format!(
-                        "Expected {} arguments but got {}",
-                        function.arity(),
-                        self.arguments.len()
+                        "Expected {} arguments but found {}",
+                        func.arity(),
+                        args.len()
                     ),
                     &self.parentheses,
                 ));
             }
-            Ok(function.call(environment, args))
+            Ok(func.call(environment, args))
         } else {
             Err(ParseError::new(
                 "Can only call functions",

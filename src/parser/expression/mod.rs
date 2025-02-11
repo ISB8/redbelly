@@ -277,7 +277,7 @@ impl Expression for CallExpression {
                     &self.parentheses,
                 ));
             }
-            Ok(func.call(environment, args))
+            Ok(func.call(environment, args).unwrap())
         } else {
             Err(ParseError::new(
                 "Can only call functions",

@@ -16,6 +16,11 @@ use expression::{
 };
 use statement::*;
 
+#[derive(Debug)]
+enum FunctionType {
+    Function,
+}
+
 pub struct Parser {
     tokens: Vec<Token>,
     index: usize,
@@ -155,6 +160,9 @@ impl Parser {
         if self.conditional_consume(vec![TokenType::For]) {
             return self.for_statement();
         }
+        if self.conditional_consume(vec![TokenType::Func]) {
+            return self.function_statement(FunctionType::Function);
+        }
         self.expression_statement()
     }
 
@@ -288,6 +296,64 @@ impl Parser {
         }
 
         Ok(body)
+    }
+
+    fn function_statement(&mut self, kind: FunctionType) -> Result<Rc<dyn Statement>, ParseError> {
+        if !self.check(TokenType::Identifier) {
+            return Err(ParseError::new(
+                &format!("Expect {:?} name", kind),
+                self.consume(),
+            ));
+        }
+        let name = self.consume().clone();
+
+        if !self.conditional_consume(vec![TokenType::LeftParen]) {
+            return Err(ParseError::new(
+                &format!("Expect '(' after {:?} name", kind),
+                self.consume(),
+            ));
+        }
+
+        let mut parameters = vec![];
+
+        if !self.check(TokenType::RightParen) {
+            loop {
+                if parameters.len() >= 255 {
+                    return Err(ParseError::new(
+                        "Cant have more then 255 parameters",
+                        self.consume(),
+                    ));
+                }
+
+                if !self.check(TokenType::Identifier) {
+                    return Err(ParseError::new("Expect parameter name", self.consume()));
+                }
+                parameters.push(self.consume().clone());
+
+                if !self.conditional_consume(vec![TokenType::Comma]) {
+                    break;
+                }
+            }
+        }
+        if !self.check(TokenType::RightParen) {
+            return Err(ParseError::new(
+                "Expect ')' after parameters",
+                self.consume(),
+            ));
+        }
+        self.consume();
+
+        if !self.check(TokenType::LeftBrace) {
+            return Err(ParseError::new(
+                &format!("Expect '{{' before {:?} body", kind),
+                self.consume(),
+            ));
+        }
+        self.consume();
+
+        let body = self.block_statement()?;
+
+        Ok(Rc::from(FunctionStatement::new(name, parameters, body)))
     }
 }
 
@@ -527,6 +593,30 @@ impl Debug for ParseError {
     }
 }
 
+// TODO: Convert all parse errors in Expr and Stmt to RuntimeErrors
+pub struct RuntimeError {
+    message: String,
+}
+
+impl RuntimeError {
+    pub fn new(message: &str) -> Self {
+        Self {
+            message: String::from(message),
+        }
+    }
+}
+
+impl Display for RuntimeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.message)
+    }
+}
+impl Debug for RuntimeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self)
+    }
+}
+
 pub mod environment;
 mod expression;
-mod statement;
+pub mod statement;

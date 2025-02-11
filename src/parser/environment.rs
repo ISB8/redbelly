@@ -1,6 +1,8 @@
 use std::{
     collections::HashMap,
+    fmt::Display,
     io::{stdin, stdout, Write},
+    rc::Rc,
     time::UNIX_EPOCH,
 };
 
@@ -9,7 +11,7 @@ use crate::{
     redbelly_value::{RedbellyCallable, RedbellyValue},
 };
 
-use super::ParseError;
+use super::{ParseError, RuntimeError};
 
 #[derive(Clone)]
 pub struct Environment {
@@ -68,6 +70,51 @@ impl Environment {
     }
 }
 
+#[derive(Clone, PartialEq, Debug)]
+struct RedbellyGlobalFunction {
+    arity: usize,
+    call: fn(environment: &mut Environment, args: Vec<RedbellyValue>) -> RedbellyValue,
+    to_string: fn() -> String,
+}
+
+impl RedbellyGlobalFunction {
+    fn new(
+        arity: usize,
+        call: fn(environment: &mut Environment, args: Vec<RedbellyValue>) -> RedbellyValue,
+        to_string: fn() -> String,
+    ) -> Self {
+        Self {
+            arity,
+            call,
+            to_string,
+        }
+    }
+}
+
+impl RedbellyCallable for RedbellyGlobalFunction {
+    fn arity(&self) -> usize {
+        self.arity
+    }
+
+    fn call(
+        &self,
+        environment: &mut Environment,
+        args: Vec<RedbellyValue>,
+    ) -> Result<RedbellyValue, RuntimeError> {
+        Ok((self.call)(environment, args))
+    }
+
+    fn to_string(&self) -> String {
+        (self.to_string)()
+    }
+}
+
+impl Display for RedbellyGlobalFunction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", (self.to_string)())
+    }
+}
+
 pub fn redbelly_globals() -> Environment {
     let mut globals = Environment::new(None);
     {
@@ -81,7 +128,9 @@ pub fn redbelly_globals() -> Environment {
         };
         globals.define(
             "clock".to_owned(),
-            RedbellyValue::Callable(RedbellyCallable::new(0, call, || "<native fn>".to_owned())),
+            RedbellyValue::Callable(Rc::from(RedbellyGlobalFunction::new(0, call, || {
+                "<native fn>".to_owned()
+            }))),
         );
     }
     {
@@ -93,7 +142,9 @@ pub fn redbelly_globals() -> Environment {
         };
         globals.define(
             "print".to_owned(),
-            RedbellyValue::Callable(RedbellyCallable::new(1, call, || "<native fn>".to_owned())),
+            RedbellyValue::Callable(Rc::from(RedbellyGlobalFunction::new(1, call, || {
+                "<native fn>".to_owned()
+            }))),
         );
     }
     {
@@ -106,7 +157,9 @@ pub fn redbelly_globals() -> Environment {
         };
         globals.define(
             "println".to_owned(),
-            RedbellyValue::Callable(RedbellyCallable::new(1, call, || "<native fn>".to_owned())),
+            RedbellyValue::Callable(Rc::from(RedbellyGlobalFunction::new(1, call, || {
+                "<native fn>".to_owned()
+            }))),
         );
     }
     {
@@ -119,7 +172,9 @@ pub fn redbelly_globals() -> Environment {
         };
         globals.define(
             "input".to_owned(),
-            RedbellyValue::Callable(RedbellyCallable::new(0, call, || "<native fn>".to_owned())),
+            RedbellyValue::Callable(Rc::from(RedbellyGlobalFunction::new(0, call, || {
+                "<native fn>".to_owned()
+            }))),
         );
     }
     {
@@ -128,7 +183,9 @@ pub fn redbelly_globals() -> Environment {
         };
         globals.define(
             "exit".to_owned(),
-            RedbellyValue::Callable(RedbellyCallable::new(1, call, || "<native fn>".to_owned())),
+            RedbellyValue::Callable(Rc::from(RedbellyGlobalFunction::new(1, call, || {
+                "<native fn>".to_owned()
+            }))),
         );
     }
     globals

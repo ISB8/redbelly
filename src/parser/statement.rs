@@ -1,6 +1,9 @@
 use std::rc::Rc;
 
-use crate::{lexer::Token, redbelly_value::RedbellyValue};
+use crate::{
+    lexer::Token,
+    redbelly_value::{RedbellyFunction, RedbellyValue},
+};
 
 use super::{environment::Environment, expression::Expression, ParseError};
 
@@ -136,6 +139,34 @@ impl Statement for WhileStatement {
             self.body.execute(environment)?;
         }
 
+        Ok(())
+    }
+}
+
+#[derive(Clone)]
+pub struct FunctionStatement {
+    pub name: Token,
+    pub parameters: Vec<Token>,
+    pub body: Rc<dyn Statement>,
+}
+
+impl FunctionStatement {
+    pub fn new(name: Token, parameters: Vec<Token>, body: Rc<dyn Statement>) -> Self {
+        Self {
+            name,
+            parameters,
+            body,
+        }
+    }
+}
+
+impl Statement for FunctionStatement {
+    fn execute(&self, environment: &mut Environment) -> std::result::Result<(), ParseError> {
+        let function = RedbellyFunction::new(self.to_owned());
+        environment.define(
+            self.name.lexeme.clone(),
+            RedbellyValue::Callable(Rc::from(function)),
+        );
         Ok(())
     }
 }

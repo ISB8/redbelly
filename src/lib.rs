@@ -28,7 +28,7 @@ fn run(contents: String, environment: &mut Environment) {
                 }
             }
         }
-        Err(error) => eprintln!("{:?}", error),
+        Err(error) => eprintln!("{}", error),
     }
 }
 

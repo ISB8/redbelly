@@ -1,15 +1,19 @@
-use std::fmt::Display;
+use std::{
+    fmt::{Debug, Display},
+    rc::Rc,
+};
 
-use crate::parser::environment::Environment;
+use crate::parser::statement::FunctionStatement;
+use crate::parser::{environment::Environment, RuntimeError};
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, Debug)]
 pub enum RedbellyValue {
     Number(f64),
     String(String),
     True,
     False,
     Nil,
-    Callable(RedbellyCallable),
+    Callable(Rc<dyn RedbellyCallable>),
 }
 
 impl RedbellyValue {
@@ -41,36 +45,79 @@ impl Display for RedbellyValue {
     }
 }
 
-#[derive(Clone, PartialEq, Debug)]
-pub struct RedbellyCallable {
-    arity: usize,
-    call: fn(environment: &mut Environment, args: Vec<RedbellyValue>) -> RedbellyValue,
-    to_string: fn() -> String,
-}
-
-impl RedbellyCallable {
-    pub fn new(
-        arity: usize,
-        call: fn(environment: &mut Environment, args: Vec<RedbellyValue>) -> RedbellyValue,
-        to_string: fn() -> String,
-    ) -> Self {
-        Self {
-            arity,
-            call,
-            to_string,
+impl PartialEq for RedbellyValue {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Number(l0), Self::Number(r0)) => l0 == r0,
+            (Self::String(l0), Self::String(r0)) => l0 == r0,
+            (Self::Callable(_l0), Self::Callable(_r0)) => false,
+            _ => core::mem::discriminant(self) == core::mem::discriminant(other),
         }
     }
-    pub fn arity(&self) -> usize {
+}
+
+pub trait RedbellyCallable {
+    fn arity(&self) -> usize;
+    fn call(
+        &self,
+        environment: &mut Environment,
+        args: Vec<RedbellyValue>,
+    ) -> Result<RedbellyValue, RuntimeError>;
+    fn to_string(&self) -> String;
+}
+
+impl Display for dyn RedbellyCallable {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.to_string())
+    }
+}
+
+impl Debug for dyn RedbellyCallable {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.to_string())
+    }
+}
+
+pub struct RedbellyFunction {
+    arity: usize,
+    declaration: FunctionStatement,
+}
+
+impl RedbellyFunction {
+    pub fn new(declaration: FunctionStatement) -> Self {
+        Self {
+            arity: declaration.parameters.len(),
+            declaration,
+        }
+    }
+}
+
+impl RedbellyCallable for RedbellyFunction {
+    fn arity(&self) -> usize {
         self.arity
     }
 
-    pub fn call(&self, environment: &mut Environment, args: Vec<RedbellyValue>) -> RedbellyValue {
-        (self.call)(environment, args)
-    }
-}
+    fn call(
+        &self,
+        environment: &mut Environment,
+        args: Vec<RedbellyValue>,
+    ) -> Result<RedbellyValue, RuntimeError> {
+        let mut environment = environment.clone().enclosed();
+        for (index, paramenter) in self.declaration.parameters.clone().into_iter().enumerate() {
+            environment.define(
+                paramenter.lexeme,
+                args.get(index)
+                    .expect("Index should never be invalid")
+                    .clone(),
+            );
+        }
 
-impl Display for RedbellyCallable {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", (self.to_string)())
+        self.declaration.body.execute(&mut environment).unwrap();
+
+        Ok(RedbellyValue::Nil)
+    }
+
+    fn to_string(&self) -> String {
+        format!("<fn {}>", self.declaration.name.lexeme)
     }
 }

@@ -1,1 +1,5 @@
-print("hello " + "world");
+func add(a, b) {
+    println(a + b);
+}
+
+add(1, 2);

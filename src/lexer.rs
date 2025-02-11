@@ -198,7 +198,7 @@ impl Lexer {
             None => self.add_token(TokenType::Slash),
             Some(_) => {
                 // If returns none due to array out of bounds, uses null ascii value
-                while self.peek().unwrap_or(&'\0') != &'\0' {
+                while self.peek().unwrap_or(&'\0') != &'\n' {
                     let _ = self.consume();
                 }
                 Ok(())
@@ -381,7 +381,7 @@ mod lexer_tests {
             Token::new(TokenType::LessEqual, "<=".to_string(), 2),
             Token::new(TokenType::Eof, "".to_string(), 2),
         ];
-        let string = String::from("// Comment which should be ignored\n<=");
+        let string = String::from("// Comment which should be ignored \n<=");
         let mut lexer = Lexer::new(string.clone());
         let tokens = lexer.scan().unwrap();
         assert_eq!(test_tokens, tokens);

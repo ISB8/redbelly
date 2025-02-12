@@ -154,6 +154,9 @@ impl Parser {
         if self.conditional_consume(vec![TokenType::If]) {
             return self.if_statement();
         }
+        if self.conditional_consume(vec![TokenType::Return]) {
+            return self.return_statement();
+        }
         if self.conditional_consume(vec![TokenType::While]) {
             return self.while_statement();
         }
@@ -355,6 +358,21 @@ impl Parser {
 
         Ok(Rc::from(FunctionStatement::new(name, parameters, body)))
     }
+
+    fn return_statement(&mut self) -> Result<Rc<dyn Statement>, ParseError> {
+        let keyword = self.previous().clone();
+        let value = if !self.check(TokenType::Semicolon) {
+            self.expression()?
+        } else {
+            Rc::from(Literal::new(RedbellyValue::Nil))
+        };
+
+        if !self.conditional_consume(vec![TokenType::Semicolon]) {
+            return Err(ParseError::new("Expect ';' after return value", &keyword));
+        }
+
+        Ok(Rc::from(ReturnStatement::new(value)))
+    }
 }
 
 // This impl block contains all the grammer rules
@@ -550,11 +568,14 @@ impl Parser {
 pub fn interpret(
     statements: Vec<Rc<dyn Statement>>,
     environment: &mut Environment,
-) -> Option<ParseError> {
+) -> Option<RuntimeError> {
     for statement in statements {
         match statement.execute(environment) {
-            Ok(()) => (),
-            Err(error) => return Some(error),
+            Ok(_) => (),
+            Err(exception) => match exception {
+                RedbellyRuntimeException::Return(_) => return None,
+                RedbellyRuntimeException::Error(runtime_error) => return Some(runtime_error),
+            },
         };
     }
     None
@@ -593,7 +614,11 @@ impl Debug for ParseError {
     }
 }
 
-// TODO: Convert all parse errors in Expr and Stmt to RuntimeErrors
+pub enum RedbellyRuntimeException {
+    Return(RedbellyValue),
+    Error(RuntimeError),
+}
+
 pub struct RuntimeError {
     message: String,
 }
@@ -602,6 +627,12 @@ impl RuntimeError {
     pub fn new(message: &str) -> Self {
         Self {
             message: String::from(message),
+        }
+    }
+
+    pub fn from_token(message: &str, token: &Token) -> Self {
+        Self {
+            message: format!("{} at {}", message, token.lexeme),
         }
     }
 }

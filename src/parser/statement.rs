@@ -5,10 +5,12 @@ use crate::{
     redbelly_value::{RedbellyFunction, RedbellyValue},
 };
 
-use super::{environment::Environment, expression::Expression, ParseError};
+use super::{
+    environment::Environment, expression::Expression, RedbellyRuntimeException, RuntimeError,
+};
 
 pub trait Statement {
-    fn execute(&self, environment: &mut Environment) -> Result<(), ParseError>;
+    fn execute(&self, environment: &mut Environment) -> Result<(), RedbellyRuntimeException>;
 }
 
 pub struct ExpressionStatement {
@@ -22,7 +24,7 @@ impl ExpressionStatement {
 }
 
 impl Statement for ExpressionStatement {
-    fn execute(&self, environment: &mut Environment) -> Result<(), ParseError> {
+    fn execute(&self, environment: &mut Environment) -> Result<(), RedbellyRuntimeException> {
         let _ = environment;
         self.expr.evaluate(environment)?;
         Ok(())
@@ -41,7 +43,7 @@ impl VariableStatement {
 }
 
 impl Statement for VariableStatement {
-    fn execute(&self, environment: &mut Environment) -> Result<(), ParseError> {
+    fn execute(&self, environment: &mut Environment) -> Result<(), RedbellyRuntimeException> {
         match &self.initializer {
             Some(expr) => {
                 let val = expr.evaluate(environment)?;
@@ -67,7 +69,7 @@ impl BlockStatement {
 }
 
 impl Statement for BlockStatement {
-    fn execute(&self, environment: &mut Environment) -> Result<(), ParseError> {
+    fn execute(&self, environment: &mut Environment) -> Result<(), RedbellyRuntimeException> {
         let mut inner_env = environment.clone().enclosed();
 
         for stmt in &self.statements {
@@ -105,7 +107,7 @@ impl IfStatement {
 }
 
 impl Statement for IfStatement {
-    fn execute(&self, environment: &mut Environment) -> Result<(), ParseError> {
+    fn execute(&self, environment: &mut Environment) -> Result<(), RedbellyRuntimeException> {
         let result = self.condition.evaluate(environment)?;
 
         match result {
@@ -116,8 +118,9 @@ impl Statement for IfStatement {
                 }
                 Ok(())
             }
-            // FIXME hacky fix is hacky
-            _ => panic!("Hacky Fix for handling invalid if condition"),
+            _ => Err(RedbellyRuntimeException::Error(RuntimeError::new(
+                "Condition within if statement was not True or False",
+            ))),
         }
     }
 }
@@ -134,7 +137,7 @@ impl WhileStatement {
 }
 
 impl Statement for WhileStatement {
-    fn execute(&self, environment: &mut Environment) -> Result<(), ParseError> {
+    fn execute(&self, environment: &mut Environment) -> Result<(), RedbellyRuntimeException> {
         while self.condition.evaluate(environment)? == RedbellyValue::True {
             self.body.execute(environment)?;
         }
@@ -161,12 +164,39 @@ impl FunctionStatement {
 }
 
 impl Statement for FunctionStatement {
-    fn execute(&self, environment: &mut Environment) -> std::result::Result<(), ParseError> {
+    fn execute(
+        &self,
+        environment: &mut Environment,
+    ) -> std::result::Result<(), RedbellyRuntimeException> {
         let function = RedbellyFunction::new(self.to_owned());
         environment.define(
             self.name.lexeme.clone(),
             RedbellyValue::Callable(Rc::from(function)),
         );
         Ok(())
+    }
+}
+
+pub struct ReturnStatement {
+    value: Rc<dyn Expression>,
+}
+
+impl ReturnStatement {
+    pub fn new(value: Rc<dyn Expression>) -> Self {
+        Self { value }
+    }
+}
+
+impl Statement for ReturnStatement {
+    fn execute(&self, environment: &mut Environment) -> Result<(), RedbellyRuntimeException> {
+        Err(RedbellyRuntimeException::Return(
+            self.value.evaluate(environment)?,
+        ))
+    }
+}
+
+impl From<RuntimeError> for RedbellyRuntimeException {
+    fn from(value: RuntimeError) -> Self {
+        RedbellyRuntimeException::Error(value)
     }
 }

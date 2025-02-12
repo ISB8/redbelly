@@ -5,9 +5,9 @@ use crate::{
     redbelly_value::RedbellyValue,
 };
 
-use super::{environment::Environment, ParseError};
+use super::{environment::Environment, RuntimeError};
 pub(crate) trait Expression {
-    fn evaluate(&self, environment: &mut Environment) -> Result<RedbellyValue, ParseError>;
+    fn evaluate(&self, environment: &mut Environment) -> Result<RedbellyValue, RuntimeError>;
     fn to_any(&self) -> &dyn Any;
 }
 
@@ -22,7 +22,7 @@ impl Literal {
 }
 
 impl Expression for Literal {
-    fn evaluate(&self, environment: &mut Environment) -> Result<RedbellyValue, ParseError> {
+    fn evaluate(&self, environment: &mut Environment) -> Result<RedbellyValue, RuntimeError> {
         let _ = environment;
         Ok(self.value.clone())
     }
@@ -42,7 +42,7 @@ impl Grouping {
 }
 
 impl Expression for Grouping {
-    fn evaluate(&self, environment: &mut Environment) -> Result<RedbellyValue, ParseError> {
+    fn evaluate(&self, environment: &mut Environment) -> Result<RedbellyValue, RuntimeError> {
         self.expr.evaluate(environment)
     }
     fn to_any(&self) -> &dyn Any {
@@ -62,7 +62,7 @@ impl Unary {
 }
 
 impl Expression for Unary {
-    fn evaluate(&self, environment: &mut Environment) -> Result<RedbellyValue, ParseError> {
+    fn evaluate(&self, environment: &mut Environment) -> Result<RedbellyValue, RuntimeError> {
         let expr = self.right.evaluate(environment)?;
 
         match self.operator.token_type {
@@ -70,7 +70,10 @@ impl Expression for Unary {
                 if let Some(num) = expr.try_cast_to_f64() {
                     return Ok(RedbellyValue::Number(-num));
                 } else {
-                    return Err(ParseError::new("\"-\" not used on number", &self.operator));
+                    return Err(RuntimeError::from_token(
+                        "\"-\" not used on number",
+                        &self.operator,
+                    ));
                 }
             }
             // No truthy values, might cause problems later
@@ -79,7 +82,7 @@ impl Expression for Unary {
                 RedbellyValue::False => return Ok(RedbellyValue::True),
                 RedbellyValue::True => return Ok(RedbellyValue::False),
                 _ => {
-                    return Err(ParseError::new(
+                    return Err(RuntimeError::from_token(
                         "\"!\" used on non bool value",
                         &self.operator,
                     ))
@@ -88,7 +91,7 @@ impl Expression for Unary {
             _ => (),
         }
 
-        Err(ParseError::new("Invalid Operator", &self.operator))
+        Err(RuntimeError::from_token("Invalid Operator", &self.operator))
     }
     fn to_any(&self) -> &dyn Any {
         self
@@ -112,7 +115,7 @@ impl Binary {
 }
 
 impl Expression for Binary {
-    fn evaluate(&self, environment: &mut Environment) -> Result<RedbellyValue, ParseError> {
+    fn evaluate(&self, environment: &mut Environment) -> Result<RedbellyValue, RuntimeError> {
         let left = self.left.evaluate(environment)?;
         let right = self.right.evaluate(environment)?;
 
@@ -124,7 +127,10 @@ impl Expression for Binary {
                 {
                     Ok(RedbellyValue::Number(left_num - right_num))
                 } else {
-                    Err(ParseError::new("\"-\" not used on number", &self.operator))
+                    Err(RuntimeError::from_token(
+                        "\"-\" not used on number",
+                        &self.operator,
+                    ))
                 }
             }
             TokenType::Slash => {
@@ -133,7 +139,10 @@ impl Expression for Binary {
                 {
                     Ok(RedbellyValue::Number(left_num / right_num))
                 } else {
-                    Err(ParseError::new("\"/\" not used on number", &self.operator))
+                    Err(RuntimeError::from_token(
+                        "\"/\" not used on number",
+                        &self.operator,
+                    ))
                 }
             }
             TokenType::Star => {
@@ -142,7 +151,10 @@ impl Expression for Binary {
                 {
                     Ok(RedbellyValue::Number(left_num * right_num))
                 } else {
-                    Err(ParseError::new("\"*\" not used on number", &self.operator))
+                    Err(RuntimeError::from_token(
+                        "\"*\" not used on number",
+                        &self.operator,
+                    ))
                 }
             }
             TokenType::Plus => {
@@ -155,7 +167,7 @@ impl Expression for Binary {
                 {
                     return Ok(RedbellyValue::String(left_str + &right_str));
                 } else {
-                    return Err(ParseError::new(
+                    return Err(RuntimeError::from_token(
                         "\"+\" not used on number or string",
                         &self.operator,
                     ));
@@ -171,7 +183,7 @@ impl Expression for Binary {
                         false => Ok(RedbellyValue::False),
                     }
                 } else {
-                    Err(ParseError::new(
+                    Err(RuntimeError::from_token(
                         "Operator not used on number",
                         &self.operator,
                     ))
@@ -186,7 +198,7 @@ impl Expression for Binary {
                         false => Ok(RedbellyValue::False),
                     }
                 } else {
-                    Err(ParseError::new(
+                    Err(RuntimeError::from_token(
                         "Operator not used on number",
                         &self.operator,
                     ))
@@ -201,7 +213,7 @@ impl Expression for Binary {
                         false => Ok(RedbellyValue::False),
                     }
                 } else {
-                    Err(ParseError::new(
+                    Err(RuntimeError::from_token(
                         "Operator not used on number",
                         &self.operator,
                     ))
@@ -216,7 +228,7 @@ impl Expression for Binary {
                         false => Ok(RedbellyValue::False),
                     }
                 } else {
-                    Err(ParseError::new(
+                    Err(RuntimeError::from_token(
                         "Operator not used on number",
                         &self.operator,
                     ))
@@ -231,7 +243,7 @@ impl Expression for Binary {
                 true => Ok(RedbellyValue::True),
                 false => Ok(RedbellyValue::False),
             },
-            _ => Err(ParseError::new("Unknown Operator", &self.operator)),
+            _ => Err(RuntimeError::from_token("Unknown Operator", &self.operator)),
         }
     }
     fn to_any(&self) -> &dyn Any {
@@ -260,7 +272,7 @@ impl CallExpression {
 }
 
 impl Expression for CallExpression {
-    fn evaluate(&self, environment: &mut Environment) -> Result<RedbellyValue, ParseError> {
+    fn evaluate(&self, environment: &mut Environment) -> Result<RedbellyValue, RuntimeError> {
         let mut args = vec![];
         for arg in &self.arguments {
             args.push(arg.evaluate(environment)?);
@@ -268,7 +280,7 @@ impl Expression for CallExpression {
 
         if let RedbellyValue::Callable(func) = self.callee.evaluate(environment)? {
             if args.len() != func.arity() {
-                return Err(ParseError::new(
+                return Err(RuntimeError::from_token(
                     &format!(
                         "Expected {} arguments but found {}",
                         func.arity(),
@@ -277,9 +289,9 @@ impl Expression for CallExpression {
                     &self.parentheses,
                 ));
             }
-            Ok(func.call(environment, args).unwrap())
+            Ok(func.call(environment, args)?)
         } else {
-            Err(ParseError::new(
+            Err(RuntimeError::from_token(
                 "Can only call functions",
                 &self.parentheses,
             ))
@@ -301,7 +313,7 @@ impl VariableExpression {
 }
 
 impl Expression for VariableExpression {
-    fn evaluate(&self, environment: &mut Environment) -> Result<RedbellyValue, ParseError> {
+    fn evaluate(&self, environment: &mut Environment) -> Result<RedbellyValue, RuntimeError> {
         Ok(environment.get(self.name.clone())?.clone())
     }
     fn to_any(&self) -> &dyn Any {
@@ -321,7 +333,7 @@ impl AssignmentExpression {
 }
 
 impl Expression for AssignmentExpression {
-    fn evaluate(&self, environment: &mut Environment) -> Result<RedbellyValue, ParseError> {
+    fn evaluate(&self, environment: &mut Environment) -> Result<RedbellyValue, RuntimeError> {
         let value = self.value.evaluate(environment)?;
         match environment.assign(self.name.clone(), value.clone()) {
             Some(error) => Err(error),
@@ -351,12 +363,12 @@ impl Logical {
 }
 
 impl Expression for Logical {
-    fn evaluate(&self, environment: &mut Environment) -> Result<RedbellyValue, ParseError> {
+    fn evaluate(&self, environment: &mut Environment) -> Result<RedbellyValue, RuntimeError> {
         let left = self.left.evaluate(environment)?;
 
         // Handle non bool values
         if left != RedbellyValue::True && left != RedbellyValue::False {
-            return Err(ParseError::new(
+            return Err(RuntimeError::from_token(
                 "Logical Operator used on non bool value",
                 &self.operator,
             ));
@@ -373,7 +385,7 @@ impl Expression for Logical {
         let right = self.right.evaluate(environment)?;
 
         if right != RedbellyValue::True && right != RedbellyValue::False {
-            return Err(ParseError::new(
+            return Err(RuntimeError::from_token(
                 "Logical Operator used on non bool value",
                 &self.operator,
             ));

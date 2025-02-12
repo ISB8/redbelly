@@ -1,5 +1,3 @@
-func add(a, b) {
-    println(a + b);
-}
-
-add(1, 2);
+println("hello" + "world");
+return nil;
+println("hello" + "world");

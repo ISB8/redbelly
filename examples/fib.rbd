@@ -1,8 +1,17 @@
-let a = 0;
-let temp = 0;
+func fib(number) {
+  let a = 0;
+  let temp = 0;
+  let index = 0;
 
-for (let b = 1; a < 10000; b = temp + b) {
-  println(a);
-  temp = a;
-  a = b;
+  for (let b = 1; index < number; b = temp + b) {
+    temp = a;
+    a = b;
+    index = index + 1;
+  }
+
+  return a;
+}
+
+for (let i = 0; i < 20; i = i + 1) {
+  println(fib(i));
 }

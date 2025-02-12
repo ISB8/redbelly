@@ -11,7 +11,7 @@ use crate::{
     redbelly_value::{RedbellyCallable, RedbellyValue},
 };
 
-use super::{ParseError, RuntimeError};
+use super::RuntimeError;
 
 #[derive(Clone)]
 pub struct Environment {
@@ -30,7 +30,7 @@ impl Environment {
         self.values.insert(name, value);
     }
 
-    pub fn assign(&mut self, name: Token, value: RedbellyValue) -> Option<ParseError> {
+    pub fn assign(&mut self, name: Token, value: RedbellyValue) -> Option<RuntimeError> {
         use std::collections::hash_map::Entry;
         match self.values.entry(name.lexeme.clone()) {
             Entry::Occupied(mut occupied_entry) => {
@@ -43,20 +43,20 @@ impl Environment {
                 }
             }
         }
-        Some(ParseError::new(
+        Some(RuntimeError::from_token(
             &format!("Undefined Variable {}", name.lexeme),
             &name,
         ))
     }
 
-    pub fn get(&self, name: Token) -> Result<&RedbellyValue, ParseError> {
+    pub fn get(&self, name: Token) -> Result<&RedbellyValue, RuntimeError> {
         match self.values.get(&name.lexeme) {
             Some(val) => Ok(val),
             None => {
                 if let Some(env) = &*self.enclosing {
                     return env.get(name);
                 }
-                Err(ParseError::new("Undefined variable", &name))
+                Err(RuntimeError::from_token("Undefined variable", &name))
             }
         }
     }

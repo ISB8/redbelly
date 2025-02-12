@@ -3,8 +3,8 @@ use std::{
     rc::Rc,
 };
 
-use crate::parser::statement::FunctionStatement;
 use crate::parser::{environment::Environment, RuntimeError};
+use crate::parser::{statement::FunctionStatement, RedbellyRuntimeException};
 
 #[derive(Clone, Debug)]
 pub enum RedbellyValue {
@@ -112,7 +112,13 @@ impl RedbellyCallable for RedbellyFunction {
             );
         }
 
-        self.declaration.body.execute(&mut environment).unwrap();
+        match self.declaration.body.execute(&mut environment) {
+            Ok(_) => (),
+            Err(expt) => match expt {
+                RedbellyRuntimeException::Return(redbelly_value) => return Ok(redbelly_value),
+                RedbellyRuntimeException::Error(runtime_error) => return Err(runtime_error),
+            },
+        }
 
         Ok(RedbellyValue::Nil)
     }

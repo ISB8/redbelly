@@ -154,7 +154,10 @@ impl Lexer {
                 } else if is_alpha(c) {
                     self.handle_identifiers()
                 } else {
-                    Err(RedbellyError::new("Unexpected Character", self.line))
+                    Err(RedbellyError::new(
+                        &format!("Unexpected Character: {}", c),
+                        self.line,
+                    ))
                 }
             }
         }

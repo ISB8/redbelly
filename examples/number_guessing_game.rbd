@@ -1,0 +1,38 @@
+// I could not get the game you descibed to work lol
+func get_input() {
+    while(true) {
+        print("Pick a number between 1 - 100: ");
+        let str = input();
+        let num = str_to_num(str);
+        if (num != nil) {
+            return num;
+        } else {
+            println("Input was not a number");
+        }
+    }
+}
+
+let num = get_input();
+
+let guess;
+let break = false;
+let iter = 0;
+let high = 100;
+let low = 0;
+
+while(!break) {
+    guess = floor((low + high) /2);
+
+    if (num == guess) {
+        break = true;
+    } else {
+        if (num > guess) {
+            low = guess;
+        } else {
+            high = guess;
+        }
+        iter = iter + 1;
+    }
+}
+
+print("Number: "); print(num); print(" found in: "); print(iter); println(" loops");

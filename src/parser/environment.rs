@@ -188,6 +188,51 @@ pub fn redbelly_globals() -> Environment {
             }))),
         );
     }
+    {
+        let call = |_environment: &mut Environment, args: Vec<RedbellyValue>| -> RedbellyValue {
+            match &args[0] {
+                RedbellyValue::String(str) => match str.parse::<f64>() {
+                    Ok(num) => RedbellyValue::Number(num),
+                    Err(_) => RedbellyValue::Nil,
+                },
+                _ => RedbellyValue::Nil,
+            }
+        };
+        globals.define(
+            "str_to_num".to_owned(),
+            RedbellyValue::Callable(Rc::from(RedbellyGlobalFunction::new(1, call, || {
+                "<native fn>".to_owned()
+            }))),
+        );
+    }
+    {
+        let call = |_environment: &mut Environment, args: Vec<RedbellyValue>| -> RedbellyValue {
+            match &args[0] {
+                RedbellyValue::Number(num) => RedbellyValue::Number(num.round()),
+                _ => RedbellyValue::Nil,
+            }
+        };
+        globals.define(
+            "floor".to_owned(),
+            RedbellyValue::Callable(Rc::from(RedbellyGlobalFunction::new(1, call, || {
+                "<native fn>".to_owned()
+            }))),
+        );
+    }
+    {
+        let call = |_environment: &mut Environment, args: Vec<RedbellyValue>| -> RedbellyValue {
+            match &args[0] {
+                RedbellyValue::Number(num) => RedbellyValue::Number(num.abs()),
+                _ => RedbellyValue::Nil,
+            }
+        };
+        globals.define(
+            "abs".to_owned(),
+            RedbellyValue::Callable(Rc::from(RedbellyGlobalFunction::new(1, call, || {
+                "<native fn>".to_owned()
+            }))),
+        );
+    }
     globals
 }
 

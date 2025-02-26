@@ -21,7 +21,7 @@ let high = 100;
 let low = 0;
 
 while(!break) {
-    guess = floor((low + high) /2);
+    guess = round((low + high) /2);
 
     if (num == guess) {
         break = true;

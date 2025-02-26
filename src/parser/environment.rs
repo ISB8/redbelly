@@ -213,7 +213,7 @@ pub fn redbelly_globals() -> Environment {
             }
         };
         globals.define(
-            "floor".to_owned(),
+            "round".to_owned(),
             RedbellyValue::Callable(Rc::from(RedbellyGlobalFunction::new(1, call, || {
                 "<native fn>".to_owned()
             }))),
